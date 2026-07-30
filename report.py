@@ -34,7 +34,7 @@ def calculate_atr(df, period=14):
 
 def evaluate_combined_status(current_price, low_52, high_52, market_cycle_phase):
     """
-    Combines 52-Week Range Position AND Market Cycle Phase to evaluate overall color status for Section 1.
+    Combines 52-Week Range Position AND Market Cycle Phase to evaluate overall color status.
     """
     if high_52 == low_52:
         pct = 0.0
@@ -68,7 +68,7 @@ def evaluate_combined_status(current_price, low_52, high_52, market_cycle_phase)
 
 def evaluate_atr_status(atr, current_price):
     """
-    Evaluates 14-ATR volatility and returns card colors, badge text, and rationale for Section 2.
+    Evaluates 14-ATR volatility and returns card colors, badge text, and rationale.
     """
     atr_pct = (atr / current_price) * 100
     
@@ -146,7 +146,7 @@ def fetch_ticker_data(symbol):
     rsi = calculate_rsi(hist['Close'], period=14)
     atr = calculate_atr(hist, period=14)
 
-    # ATR Assessment Calculation for Section 2
+    # ATR Assessment Calculation
     atr_pct, atr_bg, atr_text_color, atr_badge, atr_rationale = evaluate_atr_status(atr, current_price)
 
     # Crossover Logic
@@ -243,9 +243,9 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         vix_delta_str = f"{'+' if vix_change >= 0 else ''}{vix_change:.2f}"
 
     sec1_cards = ""
-    sec2_columns = ""
+    volatility_atr_cards = ""
     sec3_columns = ""
-    sec4_columns = ""
+    volatility_risk_cards = ""
     sec6_columns = ""
 
     sec6_details = {
@@ -275,7 +275,7 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         }
     }
 
-    sec4_details = {
+    volatility_details = {
         "SPY": {"downside": "Moderate Drawdown Risk", "support": f"${data[0]['sma_200']:.2f} (200-SMA)", "action": "Trailing Stop / Cash Sweep"},
         "DIA": {"downside": "Low-Moderate Drawdown Risk", "support": f"${data[1]['sma_200']:.2f} (200-SMA)", "action": "Hold Value Base"},
         "QQQ": {"downside": "Elevated High-Beta Risk", "support": f"${data[2]['sma_200']:.2f} (200-SMA)", "action": "Trim on Overbought Signals"}
@@ -298,7 +298,16 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         change_color = "#1a7f37" if change >= 0 else "#cf222e"
         change_sign = "+" if change >= 0 else ""
 
-        # Section 1: Summary Card
+        # Section 1: Summary Card (Shiller CAPE included conditionally for SPY)
+        cape_block = ""
+        if symbol == "SPY":
+            cape_block = """
+            <div class="info-block" style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 8px; margin-top: 8px; font-size: 13px;">
+                <strong>Shiller CAPE Ratio:</strong> 41.05 (Elevated)
+                <div style="font-size: 12px; margin-top: 2px; color: #cf222e;">Top quintile historically; suggests limited long-term valuation expansion.</div>
+            </div>
+            """
+
         sec1_cards += f"""
         <div class="card" style="background-color: {item['bg_color']}; border: 1px solid #d0d7de;">
             <div class="card-header">
@@ -321,7 +330,7 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
                 <strong>Market Cycle:</strong> {item['cycle_phase']}
                 <div style="font-size: 12px; margin-top: 2px; color: #333;">{item['cycle_rationale']}</div>
             </div>
-
+            {cape_block}
             <div class="delta-info" style="border-top: 1px solid rgba(0,0,0,0.1); margin-top: 8px; padding-top: 6px; font-size: 12px;">
                 <span>Since Last Run:</span> 
                 <strong style="color: {delta_color};">{delta_str}</strong>
@@ -329,8 +338,8 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         </div>
         """
 
-        # Section 2: Volatility Profile (ATR Cards)
-        sec2_columns += f"""
+        # Section 2: Unified Volatility (Part A: ATR Cards)
+        volatility_atr_cards += f"""
         <div class="column-card" style="background-color: {item['atr_bg']}; border: 1px solid #d0d7de;">
             <div class="card-header">
                 <h3 style="margin:0; font-size: 18px; color: {item['atr_text_color']};">{symbol} Volatility</h3>
@@ -344,6 +353,17 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
             <div class="comment-box" style="margin-top: 12px; font-size: 13px; color: #24292f; line-height: 1.4;">
                 <strong>Evaluation Rationale:</strong> {item['atr_rationale']}
             </div>
+        </div>
+        """
+
+        # Section 2: Unified Volatility (Part B: Downside Risk Profiles)
+        v_det = volatility_details[symbol]
+        volatility_risk_cards += f"""
+        <div class="column-card">
+            <div class="column-title">{symbol} Downside Profile</div>
+            <div class="metric-row"><span>Risk Rating:</span> <strong style="color: #cf222e;">{v_det['downside']}</strong></div>
+            <div class="metric-row"><span>Key Support:</span> <strong>{v_det['support']}</strong></div>
+            <div class="metric-row"><span>Risk Rule:</span> <strong>{v_det['action']}</strong></div>
         </div>
         """
 
@@ -363,18 +383,7 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         </div>
         """
 
-        # Section 4: Volatility (ETF Downside Profile)
-        s4 = sec4_details[symbol]
-        sec4_columns += f"""
-        <div class="column-card">
-            <div class="column-title">{symbol} Downside Profile</div>
-            <div class="metric-row"><span>Risk Rating:</span> <strong style="color: #cf222e;">{s4['downside']}</strong></div>
-            <div class="metric-row"><span>Key Support:</span> <strong>{s4['support']}</strong></div>
-            <div class="metric-row"><span>Risk Rule:</span> <strong>{s4['action']}</strong></div>
-        </div>
-        """
-
-        # Section 6: Allocation
+        # Allocation
         s6 = sec6_details[symbol]
         sec6_columns += f"""
         <div class="column-card">
@@ -515,29 +524,15 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
             <div class="timestamp">Last Updated: {update_time_str} Mountain Time</div>
         </div>
 
-        <!-- 1. Summary -->
-        <h2>1. Summary</h2>
+        <!-- Summary -->
+        <h2>Summary</h2>
         <div class="three-column-grid">
             {sec1_cards}
         </div>
 
-        <!-- 2. Volatility -->
-        <h2>2. Volatility</h2>
-        <div class="three-column-grid">
-            {sec2_columns}
-        </div>
-
-        <!-- 3. Moving Averages -->
+        <!-- Unified Volatility -->
         <div class="section-box">
-            <h2>3. Moving Averages</h2>
-            <div class="three-column-grid">
-                {sec3_columns}
-            </div>
-        </div>
-
-        <!-- 4. Volatility -->
-        <div class="section-box">
-            <h2>4. Volatility</h2>
+            <h2>Volatility</h2>
             <div class="vix-banner">
                 <div>
                     <strong>CBOE Volatility Index (VIX):</strong> <span style="font-size: 20px; font-weight: bold; margin-left: 8px;">{vix_val:.2f}</span>
@@ -547,36 +542,51 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
                     <span style="font-size: 16px; font-weight: bold; color: {'#cf222e' if vix_change >= 0 else '#1a7f37'}; margin-left: 6px;">{vix_delta_str}</span>
                 </div>
             </div>
+            
+            <h3 style="font-size: 15px; color: #57606a; margin-top: 16px; margin-bottom: 12px;">14-Day ATR Profile</h3>
             <div class="three-column-grid">
-                {sec4_columns}
+                {volatility_atr_cards}
+            </div>
+
+            <h3 style="font-size: 15px; color: #57606a; margin-top: 16px; margin-bottom: 12px;">ETF Downside Risk Profiles</h3>
+            <div class="three-column-grid" style="margin-bottom: 0;">
+                {volatility_risk_cards}
             </div>
         </div>
 
-        <!-- 5. Macro Indicators -->
+        <!-- Moving Averages -->
         <div class="section-box">
-            <h2>5. Macro Indicators</h2>
+            <h2>Moving Averages</h2>
+            <div class="three-column-grid">
+                {sec3_columns}
+            </div>
+        </div>
+
+        <!-- Macro Indicators -->
+        <div class="section-box">
+            <h2>Macro Indicators</h2>
             <div class="macro-grid">
                 
                 <!-- Red / High Risk Indicators -->
                 <div class="macro-item" style="background-color: #ffebe9; color: #cf222e;">
-                    <div class="macro-label">1. Shiller CAPE Ratio</div>
-                    <div class="macro-value">41.05 (Elevated)</div>
-                    <div class="macro-comment">Top quintile historically; suggests limited long-term valuation expansion.</div>
-                </div>
-
-                <div class="macro-item" style="background-color: #ffebe9; color: #cf222e;">
-                    <div class="macro-label">2. Fed Balance Sheet</div>
+                    <div class="macro-label">1. Fed Balance Sheet</div>
                     <div class="macro-value">QT Ongoing</div>
                     <div class="macro-comment">Continued balance sheet runoff drains net systemic liquidity over time.</div>
                 </div>
 
-                <div class="macro-item" style="background-color: #ffebe9; color: #cf222e;">
-                    <div class="macro-label">3. S&P Dividend Yield</div>
-                    <div class="macro-value">1.25% (Low)</div>
-                    <div class="macro-comment">Below long-term averages; offers negligible downside yield support.</div>
+                <!-- Yellow / Neutral Indicators -->
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">2. Unemployment Rate</div>
+                    <div class="macro-value">Stable (~4.1%)</div>
+                    <div class="macro-comment">Labor market shows gradual cooling without signaling immediate recession.</div>
                 </div>
 
-                <!-- Yellow / Neutral Indicators -->
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">3. CPI & PCE Inflation</div>
+                    <div class="macro-value">Moderating</div>
+                    <div class="macro-comment">Trending downward toward policy targets, though shelter/service stickiness remains.</div>
+                </div>
+
                 <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
                     <div class="macro-label">4. Yield Curve (10Y-2Y)</div>
                     <div class="macro-value">Un-inverting</div>
@@ -590,32 +600,26 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
                 </div>
 
                 <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
-                    <div class="macro-label">6. Inflation CPI</div>
-                    <div class="macro-value">Moderating</div>
-                    <div class="macro-comment">Trending toward policy target, but service sector stickiness persists.</div>
-                </div>
-
-                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
-                    <div class="macro-label">7. Consumer Sentiment</div>
+                    <div class="macro-label">6. Consumer Sentiment</div>
                     <div class="macro-value">Rangebound</div>
                     <div class="macro-comment">Balanced between steady labor markets and higher living costs.</div>
                 </div>
 
                 <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
-                    <div class="macro-label">8. US Dollar (DXY)</div>
+                    <div class="macro-label">7. US Dollar (DXY)</div>
                     <div class="macro-value">Stable Range</div>
                     <div class="macro-comment">Neutral impact on multinational corporate earnings performance.</div>
                 </div>
 
                 <!-- Green / Low Risk Indicators -->
                 <div class="macro-item" style="background-color: #dafbe1; color: #1a7f37;">
-                    <div class="macro-label">9. High Yield Spreads</div>
+                    <div class="macro-label">8. High Yield Spreads</div>
                     <div class="macro-value">Tight (Low Stress)</div>
                     <div class="macro-comment">Credit markets signal minimal immediate default risk or liquidity freeze.</div>
                 </div>
 
                 <div class="macro-item" style="background-color: #dafbe1; color: #1a7f37;">
-                    <div class="macro-label">10. Real GDP Growth</div>
+                    <div class="macro-label">9. Real GDP Growth</div>
                     <div class="macro-value">Positive Expansion</div>
                     <div class="macro-comment">Economic activity continues to support underlying corporate earnings.</div>
                 </div>
@@ -623,17 +627,17 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
             </div>
         </div>
 
-        <!-- 6. Allocation -->
+        <!-- Allocation -->
         <div class="section-box">
-            <h2>6. Allocation</h2>
+            <h2>Allocation</h2>
             <div class="three-column-grid">
                 {sec6_columns}
             </div>
         </div>
 
-        <!-- 7. Guidelines -->
+        <!-- Guidelines -->
         <div class="section-box">
-            <h2>7. Guidelines</h2>
+            <h2>Guidelines</h2>
             <ul class="custom-list">
                 <li><strong>52-Week Range Threshold:</strong> When index status remains tagged in the <span style="color: #cf222e; font-weight: bold;">RED zone (≥80%)</span>, sweep gains into cash equivalents.</li>
                 <li><strong>Crossover Action Rule:</strong> On 50/200 SMA <strong>Death Cross</strong>, automatically scale back allocation target by 50%. On <strong>Golden Cross</strong>, hold/accumulate core target.</li>
@@ -670,7 +674,7 @@ def main():
     prev_snapshot = load_previous_snapshot()
     generate_html(market_data, vix_val, vix_change, prev_snapshot, update_time_str)
     save_current_snapshot(market_data, vix_val)
-    print("Report generated successfully with renamed short headers!")
+    print("Report generated successfully!")
 
 if __name__ == "__main__":
     main()
