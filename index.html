@@ -122,11 +122,11 @@
     <div class="container">
         <div class="header">
             <h1>Market Dashboard (SPY / DIA / QQQ)</h1>
-            <div class="timestamp">Last Updated: 2026-07-30 03:50:27 PM MDT Mountain Time</div>
+            <div class="timestamp">Last Updated: 2026-07-30 04:33:22 PM MDT Mountain Time</div>
         </div>
 
-        <!-- 1. Summary -->
-        <h2>1. Summary</h2>
+        <!-- Summary -->
+        <h2>Summary</h2>
         <div class="three-column-grid">
             
         <div class="card" style="background-color: #ffebe9; border: 1px solid #d0d7de;">
@@ -150,7 +150,12 @@
                 <strong>Market Cycle:</strong> Late Expansion
                 <div style="font-size: 12px; margin-top: 2px; color: #333;">Broad market supported by resilient mega-cap earnings, but valuation expansion is maturing.</div>
             </div>
-
+            
+            <div class="info-block" style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 8px; margin-top: 8px; font-size: 13px;">
+                <strong>Shiller CAPE Ratio:</strong> 41.05 (Elevated)
+                <div style="font-size: 12px; margin-top: 2px; color: #cf222e;">Top quintile historically; suggests limited long-term valuation expansion.</div>
+            </div>
+            
             <div class="delta-info" style="border-top: 1px solid rgba(0,0,0,0.1); margin-top: 8px; padding-top: 6px; font-size: 12px;">
                 <span>Since Last Run:</span> 
                 <strong style="color: #1a7f37;">+$0.00</strong>
@@ -178,7 +183,7 @@
                 <strong>Market Cycle:</strong> Mid-to-Late Expansion
                 <div style="font-size: 12px; margin-top: 2px; color: #333;">Defensive value/industrial tilt providing stable dividend yields amid shifting macro trends.</div>
             </div>
-
+            
             <div class="delta-info" style="border-top: 1px solid rgba(0,0,0,0.1); margin-top: 8px; padding-top: 6px; font-size: 12px;">
                 <span>Since Last Run:</span> 
                 <strong style="color: #1a7f37;">+$0.00</strong>
@@ -206,7 +211,7 @@
                 <strong>Market Cycle:</strong> Late Cycle / Overextended
                 <div style="font-size: 12px; margin-top: 2px; color: #333;">High-beta growth tech leading momentum; vulnerable to rate spikes and profit-taking discipline.</div>
             </div>
-
+            
             <div class="delta-info" style="border-top: 1px solid rgba(0,0,0,0.1); margin-top: 8px; padding-top: 6px; font-size: 12px;">
                 <span>Since Last Run:</span> 
                 <strong style="color: #1a7f37;">+$0.00</strong>
@@ -215,10 +220,22 @@
         
         </div>
 
-        <!-- 2. Volatility -->
-        <h2>2. Volatility</h2>
-        <div class="three-column-grid">
+        <!-- Unified Volatility -->
+        <div class="section-box">
+            <h2>Volatility</h2>
+            <div class="vix-banner">
+                <div>
+                    <strong>CBOE Volatility Index (VIX):</strong> <span style="font-size: 20px; font-weight: bold; margin-left: 8px;">17.09</span>
+                </div>
+                <div>
+                    <strong>Delta Since Last Run:</strong> 
+                    <span style="font-size: 16px; font-weight: bold; color: #1a7f37; margin-left: 6px;">+0.00</span>
+                </div>
+            </div>
             
+            <h3 style="font-size: 15px; color: #57606a; margin-top: 16px; margin-bottom: 12px;">14-Day ATR Profile</h3>
+            <div class="three-column-grid">
+                
         <div class="column-card" style="background-color: #dafbe1; border: 1px solid #d0d7de;">
             <div class="card-header">
                 <h3 style="margin:0; font-size: 18px; color: #1a7f37;">SPY Volatility</h3>
@@ -264,11 +281,38 @@
             </div>
         </div>
         
+            </div>
+
+            <h3 style="font-size: 15px; color: #57606a; margin-top: 16px; margin-bottom: 12px;">ETF Downside Risk Profiles</h3>
+            <div class="three-column-grid" style="margin-bottom: 0;">
+                
+        <div class="column-card">
+            <div class="column-title">SPY Downside Profile</div>
+            <div class="metric-row"><span>Risk Rating:</span> <strong style="color: #cf222e;">Moderate Drawdown Risk</strong></div>
+            <div class="metric-row"><span>Key Support:</span> <strong>$696.96 (200-SMA)</strong></div>
+            <div class="metric-row"><span>Risk Rule:</span> <strong>Trailing Stop / Cash Sweep</strong></div>
+        </div>
+        
+        <div class="column-card">
+            <div class="column-title">DIA Downside Profile</div>
+            <div class="metric-row"><span>Risk Rating:</span> <strong style="color: #cf222e;">Low-Moderate Drawdown Risk</strong></div>
+            <div class="metric-row"><span>Key Support:</span> <strong>$487.49 (200-SMA)</strong></div>
+            <div class="metric-row"><span>Risk Rule:</span> <strong>Hold Value Base</strong></div>
+        </div>
+        
+        <div class="column-card">
+            <div class="column-title">QQQ Downside Profile</div>
+            <div class="metric-row"><span>Risk Rating:</span> <strong style="color: #cf222e;">Elevated High-Beta Risk</strong></div>
+            <div class="metric-row"><span>Key Support:</span> <strong>$643.39 (200-SMA)</strong></div>
+            <div class="metric-row"><span>Risk Rule:</span> <strong>Trim on Overbought Signals</strong></div>
+        </div>
+        
+            </div>
         </div>
 
-        <!-- 3. Moving Averages -->
+        <!-- Moving Averages -->
         <div class="section-box">
-            <h2>3. Moving Averages</h2>
+            <h2>Moving Averages</h2>
             <div class="three-column-grid">
                 
         <div class="column-card">
@@ -313,69 +357,31 @@
             </div>
         </div>
 
-        <!-- 4. Volatility -->
+        <!-- Macro Indicators -->
         <div class="section-box">
-            <h2>4. Volatility</h2>
-            <div class="vix-banner">
-                <div>
-                    <strong>CBOE Volatility Index (VIX):</strong> <span style="font-size: 20px; font-weight: bold; margin-left: 8px;">17.09</span>
-                </div>
-                <div>
-                    <strong>Delta Since Last Run:</strong> 
-                    <span style="font-size: 16px; font-weight: bold; color: #1a7f37; margin-left: 6px;">+0.00</span>
-                </div>
-            </div>
-            <div class="three-column-grid">
-                
-        <div class="column-card">
-            <div class="column-title">SPY Downside Profile</div>
-            <div class="metric-row"><span>Risk Rating:</span> <strong style="color: #cf222e;">Moderate Drawdown Risk</strong></div>
-            <div class="metric-row"><span>Key Support:</span> <strong>$696.96 (200-SMA)</strong></div>
-            <div class="metric-row"><span>Risk Rule:</span> <strong>Trailing Stop / Cash Sweep</strong></div>
-        </div>
-        
-        <div class="column-card">
-            <div class="column-title">DIA Downside Profile</div>
-            <div class="metric-row"><span>Risk Rating:</span> <strong style="color: #cf222e;">Low-Moderate Drawdown Risk</strong></div>
-            <div class="metric-row"><span>Key Support:</span> <strong>$487.49 (200-SMA)</strong></div>
-            <div class="metric-row"><span>Risk Rule:</span> <strong>Hold Value Base</strong></div>
-        </div>
-        
-        <div class="column-card">
-            <div class="column-title">QQQ Downside Profile</div>
-            <div class="metric-row"><span>Risk Rating:</span> <strong style="color: #cf222e;">Elevated High-Beta Risk</strong></div>
-            <div class="metric-row"><span>Key Support:</span> <strong>$643.39 (200-SMA)</strong></div>
-            <div class="metric-row"><span>Risk Rule:</span> <strong>Trim on Overbought Signals</strong></div>
-        </div>
-        
-            </div>
-        </div>
-
-        <!-- 5. Macro Indicators -->
-        <div class="section-box">
-            <h2>5. Macro Indicators</h2>
+            <h2>Macro Indicators</h2>
             <div class="macro-grid">
                 
                 <!-- Red / High Risk Indicators -->
                 <div class="macro-item" style="background-color: #ffebe9; color: #cf222e;">
-                    <div class="macro-label">1. Shiller CAPE Ratio</div>
-                    <div class="macro-value">41.05 (Elevated)</div>
-                    <div class="macro-comment">Top quintile historically; suggests limited long-term valuation expansion.</div>
-                </div>
-
-                <div class="macro-item" style="background-color: #ffebe9; color: #cf222e;">
-                    <div class="macro-label">2. Fed Balance Sheet</div>
+                    <div class="macro-label">1. Fed Balance Sheet</div>
                     <div class="macro-value">QT Ongoing</div>
                     <div class="macro-comment">Continued balance sheet runoff drains net systemic liquidity over time.</div>
                 </div>
 
-                <div class="macro-item" style="background-color: #ffebe9; color: #cf222e;">
-                    <div class="macro-label">3. S&P Dividend Yield</div>
-                    <div class="macro-value">1.25% (Low)</div>
-                    <div class="macro-comment">Below long-term averages; offers negligible downside yield support.</div>
+                <!-- Yellow / Neutral Indicators -->
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">2. Unemployment Rate</div>
+                    <div class="macro-value">Stable (~4.1%)</div>
+                    <div class="macro-comment">Labor market shows gradual cooling without signaling immediate recession.</div>
                 </div>
 
-                <!-- Yellow / Neutral Indicators -->
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">3. CPI & PCE Inflation</div>
+                    <div class="macro-value">Moderating</div>
+                    <div class="macro-comment">Trending downward toward policy targets, though shelter/service stickiness remains.</div>
+                </div>
+
                 <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
                     <div class="macro-label">4. Yield Curve (10Y-2Y)</div>
                     <div class="macro-value">Un-inverting</div>
@@ -389,32 +395,26 @@
                 </div>
 
                 <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
-                    <div class="macro-label">6. Inflation CPI</div>
-                    <div class="macro-value">Moderating</div>
-                    <div class="macro-comment">Trending toward policy target, but service sector stickiness persists.</div>
-                </div>
-
-                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
-                    <div class="macro-label">7. Consumer Sentiment</div>
+                    <div class="macro-label">6. Consumer Sentiment</div>
                     <div class="macro-value">Rangebound</div>
                     <div class="macro-comment">Balanced between steady labor markets and higher living costs.</div>
                 </div>
 
                 <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
-                    <div class="macro-label">8. US Dollar (DXY)</div>
+                    <div class="macro-label">7. US Dollar (DXY)</div>
                     <div class="macro-value">Stable Range</div>
                     <div class="macro-comment">Neutral impact on multinational corporate earnings performance.</div>
                 </div>
 
                 <!-- Green / Low Risk Indicators -->
                 <div class="macro-item" style="background-color: #dafbe1; color: #1a7f37;">
-                    <div class="macro-label">9. High Yield Spreads</div>
+                    <div class="macro-label">8. High Yield Spreads</div>
                     <div class="macro-value">Tight (Low Stress)</div>
                     <div class="macro-comment">Credit markets signal minimal immediate default risk or liquidity freeze.</div>
                 </div>
 
                 <div class="macro-item" style="background-color: #dafbe1; color: #1a7f37;">
-                    <div class="macro-label">10. Real GDP Growth</div>
+                    <div class="macro-label">9. Real GDP Growth</div>
                     <div class="macro-value">Positive Expansion</div>
                     <div class="macro-comment">Economic activity continues to support underlying corporate earnings.</div>
                 </div>
@@ -422,9 +422,9 @@
             </div>
         </div>
 
-        <!-- 6. Allocation -->
+        <!-- Allocation -->
         <div class="section-box">
-            <h2>6. Allocation</h2>
+            <h2>Allocation</h2>
             <div class="three-column-grid">
                 
         <div class="column-card">
@@ -460,9 +460,9 @@
             </div>
         </div>
 
-        <!-- 7. Guidelines -->
+        <!-- Guidelines -->
         <div class="section-box">
-            <h2>7. Guidelines</h2>
+            <h2>Guidelines</h2>
             <ul class="custom-list">
                 <li><strong>52-Week Range Threshold:</strong> When index status remains tagged in the <span style="color: #cf222e; font-weight: bold;">RED zone (≥80%)</span>, sweep gains into cash equivalents.</li>
                 <li><strong>Crossover Action Rule:</strong> On 50/200 SMA <strong>Death Cross</strong>, automatically scale back allocation target by 50%. On <strong>Golden Cross</strong>, hold/accumulate core target.</li>
