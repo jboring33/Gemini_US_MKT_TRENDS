@@ -32,6 +32,31 @@ def calculate_atr(df, period=14):
     atr = df['TR'].rolling(window=period).mean()
     return atr.iloc[-1] if not atr.empty else 0.0
 
+def get_vix_bar_properties(vix_val):
+    """
+    Calculates color, status badge, and percentage width for VIX gauge.
+    - Green: < 20 (Low Volatility)
+    - Yellow: 20 - 30 (Moderate Volatility)
+    - Red: > 30 (High Volatility)
+    """
+    # Scale width relative to max expected VIX of 50
+    pct_width = min(max((vix_val / 50.0) * 100, 5), 100)
+
+    if vix_val < 20:
+        bar_color = "#1a7f37"      # Green
+        bg_tint = "#dafbe1"
+        status_label = "LOW VOLATILITY (<20)"
+    elif 20 <= vix_val <= 30:
+        bar_color = "#d4a72c"      # Yellow/Gold
+        bg_tint = "#fff8c5"
+        status_label = "MODERATE VOLATILITY (20-30)"
+    else:
+        bar_color = "#cf222e"      # Red
+        bg_tint = "#ffebe9"
+        status_label = "HIGH VOLATILITY / ELEVATED RISK (>30)"
+
+    return pct_width, bar_color, bg_tint, status_label
+
 def evaluate_combined_status(current_price, low_52, high_52, market_cycle_phase):
     if high_52 == low_52:
         pct = 0.0
@@ -232,6 +257,8 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, current_time_str):
     else:
         vix_delta_str = f"{'+' if vix_change >= 0 else ''}{vix_change:.2f}"
 
+    vix_pct_width, vix_bar_color, vix_bg_tint, vix_status_label = get_vix_bar_properties(vix_val)
+
     sec1_cards = ""
     volatility_atr_cards = ""
     sec3_columns = ""
@@ -320,7 +347,7 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, current_time_str):
                 <div style="font-size: 12px; margin-top: 2px; color: #333;">{item['cycle_rationale']}</div>
             </div>
             {cape_block}
-            <div class="delta-info" style="border-top: 1px solid rgba(0,0,0,0.1); margin-top: 8px; padding-top: 6px; font-size: 12px; display: flex; justify-space-between: space-between;">
+            <div class="delta-info" style="border-top: 1px solid rgba(0,0,0,0.1); margin-top: 8px; padding-top: 6px; font-size: 12px; display: flex; justify-content: space-between;">
                 <span>Delta Since Last Run:</span> 
                 <strong style="color: {delta_color};">{delta_str}</strong>
             </div>
@@ -495,15 +522,39 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, current_time_str):
         ul.custom-list {{ margin: 8px 0; padding-left: 18px; color: #24292f; line-height: 1.5; font-size: 13px; }}
         ul.custom-list li {{ margin-bottom: 6px; }}
 
-        .vix-banner {{
+        /* VIX Gauge Bar Styles */
+        .vix-container {{
             background: #f8f9fa;
-            border-left: 4px solid #0969da;
-            padding: 12px 16px;
-            margin-bottom: 16px;
-            border-radius: 4px;
+            border: 1px solid #d0d7de;
+            padding: 16px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+        }}
+        .vix-header-row {{
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 10px;
+        }}
+        .vix-bar-track {{
+            position: relative;
+            background-color: #e1e4e8;
+            height: 24px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #d0d7de;
+        }}
+        .vix-bar-fill {{
+            height: 100%;
+            transition: width 0.4s ease-in-out;
+        }}
+        .vix-legend {{
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #57606a;
+            margin-top: 6px;
+            padding: 0 4px;
         }}
     </style>
 </head>
@@ -528,13 +579,31 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, current_time_str):
         <!-- Volatility -->
         <div class="section-box">
             <h2>Volatility</h2>
-            <div class="vix-banner">
-                <div>
-                    <strong>CBOE Volatility Index (VIX):</strong> <span style="font-size: 20px; font-weight: bold; margin-left: 8px;">{vix_val:.2f}</span>
+            
+            <!-- Dynamic CBOE VIX Bar Chart -->
+            <div class="vix-container" style="background-color: {vix_bg_tint};">
+                <div class="vix-header-row">
+                    <div>
+                        <strong>CBOE Volatility Index (VIX):</strong> 
+                        <span style="font-size: 22px; font-weight: bold; margin-left: 8px;">{vix_val:.2f}</span>
+                        <span style="font-size: 13px; color: {'#cf222e' if vix_change >= 0 else '#1a7f37'}; margin-left: 8px; font-weight: 600;">
+                            ({vix_delta_str} since last run)
+                        </span>
+                    </div>
+                    <span class="badge" style="background-color: {vix_bar_color}; color: #ffffff; padding: 6px 12px; font-size: 12px; font-weight: bold;">
+                        {vix_status_label}
+                    </span>
                 </div>
-                <div>
-                    <strong>Delta Since Last Run:</strong> 
-                    <span style="font-size: 16px; font-weight: bold; color: {'#cf222e' if vix_change >= 0 else '#1a7f37'}; margin-left: 6px;">{vix_delta_str}</span>
+                
+                <div class="vix-bar-track">
+                    <div class="vix-bar-fill" style="width: {vix_pct_width}%; background-color: {vix_bar_color};"></div>
+                </div>
+                
+                <div class="vix-legend">
+                    <span>0 (Low)</span>
+                    <span><strong>20</strong> (Low/Moderate Threshold)</span>
+                    <span><strong>30</strong> (Moderate/High Threshold)</span>
+                    <span>50+ (Panic)</span>
                 </div>
             </div>
             
