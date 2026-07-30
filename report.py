@@ -68,7 +68,7 @@ def evaluate_combined_status(current_price, low_52, high_52, market_cycle_phase)
 
 def evaluate_atr_status(atr, current_price):
     """
-    Evaluates 14-ATR volatility and returns card colors, badge text, and rationale.
+    Evaluates 14-ATR volatility and returns card colors, badge text, and rationale for Section 2.
     """
     atr_pct = (atr / current_price) * 100
     
@@ -242,13 +242,13 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
     else:
         vix_delta_str = f"{'+' if vix_change >= 0 else ''}{vix_change:.2f}"
 
-    cards_html = ""
+    sec1_cards = ""
     sec2_columns = ""
+    sec3_columns = ""
     sec4_columns = ""
-    sec5_columns = ""
     sec6_columns = ""
 
-    sec4_details = {
+    sec6_details = {
         "SPY": {
             "target": "50% Core Allocation",
             "steps": [
@@ -275,7 +275,7 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         }
     }
 
-    sec6_details = {
+    sec4_details = {
         "SPY": {"downside": "Moderate Drawdown Risk", "support": f"${data[0]['sma_200']:.2f} (200-SMA)", "action": "Trailing Stop / Cash Sweep"},
         "DIA": {"downside": "Low-Moderate Drawdown Risk", "support": f"${data[1]['sma_200']:.2f} (200-SMA)", "action": "Hold Value Base"},
         "QQQ": {"downside": "Elevated High-Beta Risk", "support": f"${data[2]['sma_200']:.2f} (200-SMA)", "action": "Trim on Overbought Signals"}
@@ -298,8 +298,8 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         change_color = "#1a7f37" if change >= 0 else "#cf222e"
         change_sign = "+" if change >= 0 else ""
 
-        # Section 1: Executive Summary Card
-        cards_html += f"""
+        # Section 1: Summary Card
+        sec1_cards += f"""
         <div class="card" style="background-color: {item['bg_color']}; border: 1px solid #d0d7de;">
             <div class="card-header">
                 <h3 style="margin:0; font-size: 22px;">{symbol}</h3>
@@ -329,7 +329,7 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         </div>
         """
 
-        # Section 2: Volatility Profile (Entire Card Colored by ATR Evaluation)
+        # Section 2: Volatility Profile (ATR Cards)
         sec2_columns += f"""
         <div class="column-card" style="background-color: {item['atr_bg']}; border: 1px solid #d0d7de;">
             <div class="card-header">
@@ -347,22 +347,8 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         </div>
         """
 
-        # Section 4: Conservative Allocation Roadmap
-        s4 = sec4_details[symbol]
-        sec4_columns += f"""
-        <div class="column-card">
-            <div class="column-title">{symbol} Target: {s4['target']}</div>
-            <p><strong>Actionable Steps:</strong></p>
-            <ul class="custom-list">
-                <li>{s4['steps'][0]}</li>
-                <li>{s4['steps'][1]}</li>
-                <li>{s4['steps'][2]}</li>
-            </ul>
-        </div>
-        """
-
-        # Section 5: Moving Averages, RSI-14 & Crossover Signals
-        sec5_columns += f"""
+        # Section 3: Moving Averages
+        sec3_columns += f"""
         <div class="column-card">
             <div class="column-title">{symbol} Technical Indicators</div>
             <div class="metric-row"><span>20-Day SMA:</span> <strong>${item['sma_20']:.2f}</strong></div>
@@ -377,14 +363,28 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         </div>
         """
 
-        # Section 6: ETF Downside Risk Profiles
+        # Section 4: Volatility (ETF Downside Profile)
+        s4 = sec4_details[symbol]
+        sec4_columns += f"""
+        <div class="column-card">
+            <div class="column-title">{symbol} Downside Profile</div>
+            <div class="metric-row"><span>Risk Rating:</span> <strong style="color: #cf222e;">{s4['downside']}</strong></div>
+            <div class="metric-row"><span>Key Support:</span> <strong>{s4['support']}</strong></div>
+            <div class="metric-row"><span>Risk Rule:</span> <strong>{s4['action']}</strong></div>
+        </div>
+        """
+
+        # Section 6: Allocation
         s6 = sec6_details[symbol]
         sec6_columns += f"""
         <div class="column-card">
-            <div class="column-title">{symbol} Downside Profile</div>
-            <div class="metric-row"><span>Risk Rating:</span> <strong style="color: #cf222e;">{s6['downside']}</strong></div>
-            <div class="metric-row"><span>Key Support:</span> <strong>{s6['support']}</strong></div>
-            <div class="metric-row"><span>Risk Rule:</span> <strong>{s6['action']}</strong></div>
+            <div class="column-title">{symbol} Target: {s6['target']}</div>
+            <p><strong>Actionable Steps:</strong></p>
+            <ul class="custom-list">
+                <li>{s6['steps'][0]}</li>
+                <li>{s6['steps'][1]}</li>
+                <li>{s6['steps'][2]}</li>
+            </ul>
         </div>
         """
 
@@ -515,21 +515,46 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
             <div class="timestamp">Last Updated: {update_time_str} Mountain Time</div>
         </div>
 
-        <!-- Section 1: Executive Summary & Combined Status Matrix -->
-        <h2>1. Executive Summary & Combined Status Matrix</h2>
+        <!-- 1. Summary -->
+        <h2>1. Summary</h2>
         <div class="three-column-grid">
-            {cards_html}
+            {sec1_cards}
         </div>
 
-        <!-- Section 2: Technical Volatility Profile (Colored ATR Cards) -->
-        <h2>2. Volatility Analysis (14-ATR Risk Evaluation)</h2>
+        <!-- 2. Volatility -->
+        <h2>2. Volatility</h2>
         <div class="three-column-grid">
             {sec2_columns}
         </div>
 
-        <!-- Section 3: Macro & Valuation Context (10 Core Indicators) -->
+        <!-- 3. Moving Averages -->
         <div class="section-box">
-            <h2>3. Macro & Valuation Context (10 Core Indicators)</h2>
+            <h2>3. Moving Averages</h2>
+            <div class="three-column-grid">
+                {sec3_columns}
+            </div>
+        </div>
+
+        <!-- 4. Volatility -->
+        <div class="section-box">
+            <h2>4. Volatility</h2>
+            <div class="vix-banner">
+                <div>
+                    <strong>CBOE Volatility Index (VIX):</strong> <span style="font-size: 20px; font-weight: bold; margin-left: 8px;">{vix_val:.2f}</span>
+                </div>
+                <div>
+                    <strong>Delta Since Last Run:</strong> 
+                    <span style="font-size: 16px; font-weight: bold; color: {'#cf222e' if vix_change >= 0 else '#1a7f37'}; margin-left: 6px;">{vix_delta_str}</span>
+                </div>
+            </div>
+            <div class="three-column-grid">
+                {sec4_columns}
+            </div>
+        </div>
+
+        <!-- 5. Macro Indicators -->
+        <div class="section-box">
+            <h2>5. Macro Indicators</h2>
             <div class="macro-grid">
                 
                 <!-- Red / High Risk Indicators -->
@@ -598,42 +623,17 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
             </div>
         </div>
 
-        <!-- Section 4: Conservative Allocation Execution Roadmap -->
+        <!-- 6. Allocation -->
         <div class="section-box">
-            <h2>4. Conservative Allocation & Execution Roadmap</h2>
-            <div class="three-column-grid">
-                {sec4_columns}
-            </div>
-        </div>
-
-        <!-- Section 5: Moving Averages, RSI-14 & Crossover Signals -->
-        <div class="section-box">
-            <h2>5. Moving Averages, RSI-14 & Crossover Signals</h2>
-            <div class="three-column-grid">
-                {sec5_columns}
-            </div>
-        </div>
-
-        <!-- Section 6: Volatility & ETF Downside Risk -->
-        <div class="section-box">
-            <h2>6. Volatility & ETF Downside Risk</h2>
-            <div class="vix-banner">
-                <div>
-                    <strong>CBOE Volatility Index (VIX):</strong> <span style="font-size: 20px; font-weight: bold; margin-left: 8px;">{vix_val:.2f}</span>
-                </div>
-                <div>
-                    <strong>Delta Since Last Run:</strong> 
-                    <span style="font-size: 16px; font-weight: bold; color: {'#cf222e' if vix_change >= 0 else '#1a7f37'}; margin-left: 6px;">{vix_delta_str}</span>
-                </div>
-            </div>
+            <h2>6. Allocation</h2>
             <div class="three-column-grid">
                 {sec6_columns}
             </div>
         </div>
 
-        <!-- Section 7: Action Pipeline Checkpoints -->
+        <!-- 7. Guidelines -->
         <div class="section-box">
-            <h2>7. Decision Pipeline & Execution Rules</h2>
+            <h2>7. Guidelines</h2>
             <ul class="custom-list">
                 <li><strong>52-Week Range Threshold:</strong> When index status remains tagged in the <span style="color: #cf222e; font-weight: bold;">RED zone (≥80%)</span>, sweep gains into cash equivalents.</li>
                 <li><strong>Crossover Action Rule:</strong> On 50/200 SMA <strong>Death Cross</strong>, automatically scale back allocation target by 50%. On <strong>Golden Cross</strong>, hold/accumulate core target.</li>
@@ -670,7 +670,7 @@ def main():
     prev_snapshot = load_previous_snapshot()
     generate_html(market_data, vix_val, vix_change, prev_snapshot, update_time_str)
     save_current_snapshot(market_data, vix_val)
-    print("Report generated successfully with colored ATR cards in Section 2!")
+    print("Report generated successfully with renamed short headers!")
 
 if __name__ == "__main__":
     main()
