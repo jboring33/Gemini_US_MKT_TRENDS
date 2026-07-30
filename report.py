@@ -124,7 +124,7 @@ def generate_html(data, prev_snapshot, update_time_str):
         </div>
         """
 
-        # Detailed Breakdown Table (Bottom Section)
+        # Detailed Breakdown Table
         table_rows += f"""
         <tr>
             <td><strong>{symbol}</strong></td>
@@ -203,6 +203,7 @@ def generate_html(data, prev_snapshot, update_time_str):
             border: 1px solid #d0d7de;
             border-radius: 6px;
             overflow: hidden;
+            margin-bottom: 32px;
         }}
         th, td {{
             padding: 12px 16px;
@@ -211,6 +212,16 @@ def generate_html(data, prev_snapshot, update_time_str):
         }}
         th {{ background-color: #f6f8fa; font-size: 12px; text-transform: uppercase; color: #57606a; }}
         tr:last-child td {{ border-bottom: none; }}
+
+        .section-box {{
+            background: #ffffff;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }}
+        .section-box h2 {{ margin-top: 0; font-size: 18px; border-bottom: 1px solid #eaecef; padding-bottom: 8px; }}
     </style>
 </head>
 <body>
@@ -220,10 +231,12 @@ def generate_html(data, prev_snapshot, update_time_str):
             <div class="timestamp">Last Updated: {update_time_str} Mountain Time</div>
         </div>
 
+        <!-- Section 1: Top Summary Cards -->
         <div class="grid">
             {cards_html}
         </div>
 
+        <!-- Section 2: Technical Breakdown Table -->
         <h2>Technical Details & 52-Week Ranges</h2>
         <table>
             <thead>
@@ -239,6 +252,37 @@ def generate_html(data, prev_snapshot, update_time_str):
                 {table_rows}
             </tbody>
         </table>
+
+        <!-- Section 3: Macro & Valuation Context -->
+        <div class="section-box">
+            <h2>3. Macro & Valuation Context</h2>
+            <p>Content for broader valuation metrics, market cycles, or economic indicators goes here.</p>
+        </div>
+
+        <!-- Section 4: Retiree Allocation Suitability -->
+        <div class="section-box">
+            <h2>4. Retiree Allocation Suitability</h2>
+            <p>Content tracking conservative risk profiles, capital preservation bounds, and income generation metrics goes here.</p>
+        </div>
+
+        <!-- Section 5: Trend & Momentum Indicators -->
+        <div class="section-box">
+            <h2>5. Trend & Momentum Indicators</h2>
+            <p>Content analyzing broader market breadth, rotating strength, or technical indicators goes here.</p>
+        </div>
+
+        <!-- Section 6: Risk & Volatility Metrics -->
+        <div class="section-box">
+            <h2>6. Risk & Volatility Metrics</h2>
+            <p>Content monitoring drawdown limits, variance, or protective asset pacing goes here.</p>
+        </div>
+
+        <!-- Section 7: Action Pipeline & Notes -->
+        <div class="section-box">
+            <h2>7. Action Pipeline & Notes</h2>
+            <p>Content tracking systematic rules, alerts, or buy/hold/sell triggers goes here.</p>
+        </div>
+
     </div>
 </body>
 </html>
@@ -266,7 +310,7 @@ def main():
     prev_snapshot = load_previous_snapshot()
     generate_html(market_data, prev_snapshot, update_time_str)
     save_current_snapshot(market_data)
-    print("Report generated successfully in index.html!")
+    print("Report generated successfully with all sections included!")
 
 if __name__ == "__main__":
     main()
