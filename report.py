@@ -47,7 +47,6 @@ def get_range_color_and_status(current_price, low_52, high_52):
 
 def fetch_ticker_data(symbol):
     ticker = yf.Ticker(symbol)
-    # Fetch 1 year + cushion for 200 SMA
     hist = ticker.history(period="2y")
     
     if hist.empty or len(hist) < 200:
@@ -63,40 +62,63 @@ def fetch_ticker_data(symbol):
     high_52 = one_yr_hist['High'].max()
     low_52 = one_yr_hist['Low'].min()
 
-    # Technical Indicators
+    # Moving Averages
+    sma_20 = hist['Close'].rolling(window=20).mean().iloc[-1]
     sma_50 = hist['Close'].rolling(window=50).mean().iloc[-1]
     sma_200 = hist['Close'].rolling(window=200).mean().iloc[-1]
     
-    # Crossover Logic
+    sma_20_prev = hist['Close'].rolling(window=20).mean().iloc[-2]
     sma_50_prev = hist['Close'].rolling(window=50).mean().iloc[-2]
     sma_200_prev = hist['Close'].rolling(window=200).mean().iloc[-2]
-    
-    cross_signal = "No Recent Cross"
+
+    # Crossover Logic
+    cross_20_50 = "20-SMA Above 50-SMA (Bullish Trend)" if sma_20 > sma_50 else "20-SMA Below 50-SMA (Short-term Weakness)"
+    if sma_20_prev <= sma_50_prev and sma_20 > sma_50:
+        cross_20_50 = "Bullish Cross: 20-SMA crossed ABOVE 50-SMA"
+    elif sma_20_prev >= sma_50_prev and sma_20 < sma_50:
+        cross_20_50 = "Bearish Cross: 20-SMA crossed BELOW 50-SMA"
+
+    cross_50_200 = "50-SMA Above 200-SMA (Golden Alignment)" if sma_50 > sma_200 else "50-SMA Below 200-SMA (Bear Alignment)"
     action_signal = "HOLD"
     if sma_50_prev <= sma_200_prev and sma_50 > sma_200:
-        cross_signal = "Golden Cross (Cross Up)"
+        cross_50_200 = "Golden Cross (50 Crossed Above 200)"
         action_signal = "BUY"
     elif sma_50_prev >= sma_200_prev and sma_50 < sma_200:
-        cross_signal = "Death Cross (Cross Down)"
+        cross_50_200 = "Death Cross (50 Crossed Below 200)"
         action_signal = "SELL / TRIM"
     else:
         if current_price > sma_200 and sma_50 > sma_200:
-            cross_signal = "Bullish Alignment (50 > 200)"
             action_signal = "HOLD / ACCUMULATE"
         elif current_price < sma_200 and sma_50 < sma_200:
-            cross_signal = "Bearish Alignment (50 < 200)"
             action_signal = "REDUCE / SWEEP CASH"
 
     rsi = calculate_rsi(hist['Close'], period=14)
     atr = calculate_atr(hist, period=14)
 
-    rsi_status = "Neutral"
+    rsi_status = "Neutral (30-70)"
     if rsi >= 70:
         rsi_status = "Overbought (>70)"
     elif rsi <= 30:
         rsi_status = "Oversold (<30)"
 
     color, status_text, bg_color, text_color = get_range_color_and_status(current_price, low_52, high_52)
+
+    # Section 2 Rating Logic (Bull / Neutral / Bear)
+    if current_price > sma_50 and rsi < 70 and color != "red":
+        rating = "Bull"
+        rating_bg = "#dafbe1" # Green
+        rating_text = "#1a7f37"
+        comment = "Price trading above key moving averages with balanced momentum and manageable range risk."
+    elif color == "red" or rsi >= 70 or current_price < sma_20:
+        rating = "Neutral" if current_price > sma_200 else "Bear"
+        rating_bg = "#fff8c5" if rating == "Neutral" else "#ffebe9" # Yellow or Red
+        rating_text = "#9a6700" if rating == "Neutral" else "#cf222e"
+        comment = f"Upper 52-week range extension ({status_text}) or short-term pullback signal warrants conservative discipline."
+    else:
+        rating = "Bear"
+        rating_bg = "#ffebe9" # Red
+        rating_text = "#cf222e"
+        comment = "Price below structural support levels with weak momentum parameters."
 
     return {
         "symbol": symbol,
@@ -109,13 +131,19 @@ def fetch_ticker_data(symbol):
         "range_status": status_text,
         "bg_color": bg_color,
         "text_color": text_color,
+        "sma_20": sma_20,
         "sma_50": sma_50,
         "sma_200": sma_200,
         "rsi": rsi,
         "rsi_status": rsi_status,
         "atr": atr,
-        "cross_signal": cross_signal,
-        "action_signal": action_signal
+        "cross_20_50": cross_20_50,
+        "cross_50_200": cross_50_200,
+        "action_signal": action_signal,
+        "rating": rating,
+        "rating_bg": rating_bg,
+        "rating_text": rating_text,
+        "comment": comment
     }
 
 def fetch_vix_data():
@@ -146,7 +174,6 @@ def save_current_snapshot(data, vix_val):
 # HTML Report Generator
 # -----------------------------------------------------------------------------
 def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
-    # VIX Delta calculation
     prev_vix = prev_snapshot.get("VIX")
     if prev_vix is not None:
         vix_delta = vix_val - prev_vix
@@ -155,12 +182,11 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         vix_delta_str = f"{'+' if vix_change >= 0 else ''}{vix_change:.2f}"
 
     cards_html = ""
-    tech_columns = ""
+    sec2_columns = ""
     sec4_columns = ""
     sec5_columns = ""
     sec6_columns = ""
 
-    # Specific details per ETF for sections 4 & 6
     sec4_details = {
         "SPY": {
             "target": "50% Core Allocation",
@@ -199,7 +225,6 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         price = item["price"]
         change = item["change"]
         
-        # Delta calculation from last run
         prev_price = prev_snapshot.get(symbol)
         if prev_price is not None:
             delta = price - prev_price
@@ -212,7 +237,7 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         change_color = "#1a7f37" if change >= 0 else "#cf222e"
         change_sign = "+" if change >= 0 else ""
 
-        # Section 1: Summary Cards (Includes 52-Week Range)
+        # Section 1: Executive Summary
         cards_html += f"""
         <div class="card">
             <div class="card-header">
@@ -235,21 +260,22 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         </div>
         """
 
-        # Section 2: Technicals (3 Columns aligned with Section 1)
-        tech_columns += f"""
-        <div class="column-card">
-            <div class="column-title">{symbol}</div>
-            <div class="metric-row"><span>ATR (14):</span> <strong>${item['atr']:.2f}</strong></div>
-            <div class="metric-row"><span>50-Day SMA:</span> <strong>${item['sma_50']:.2f}</strong></div>
-            <div class="metric-row"><span>200-Day SMA:</span> <strong>${item['sma_200']:.2f}</strong></div>
-            <div class="metric-row"><span>RSI (14):</span> <strong>{item['rsi']:.1f}</strong></div>
-            <div class="metric-status" style="color: {'#cf222e' if item['rsi'] >= 70 or item['rsi'] <= 30 else '#57606a'};">
-                {item['rsi_status']}
+        # Section 2: Technical Rating (Full Box Colored: Bull / Neutral / Bear)
+        sec2_columns += f"""
+        <div class="column-card" style="background-color: {item['rating_bg']}; border: 1px solid #d0d7de;">
+            <div class="rating-header" style="color: {item['rating_text']}; font-size: 20px; font-weight: bold; border-bottom: 2px solid {item['rating_text']}; padding-bottom: 6px; margin-bottom: 12px;">
+                {symbol}: {item['rating'].upper()}
+            </div>
+            <div class="metric-row" style="border-bottom: 1px dashed rgba(0,0,0,0.15);">
+                <span>Volatility (14-ATR):</span> <strong>${item['atr']:.2f}</strong>
+            </div>
+            <div class="comment-box" style="margin-top: 12px; font-size: 13px; color: #24292f; line-height: 1.4;">
+                <strong>Rationale:</strong> {item['comment']}
             </div>
         </div>
         """
 
-        # Section 4: Conservative Allocation Action Plan
+        # Section 4: Conservative Allocation
         s4 = sec4_details[symbol]
         sec4_columns += f"""
         <div class="column-card">
@@ -263,12 +289,16 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         </div>
         """
 
-        # Section 5: Trend & Crossovers
+        # Section 5: Moving Averages, RSI-14 & Crossovers
         sec5_columns += f"""
         <div class="column-card">
-            <div class="column-title">{symbol} Trend</div>
-            <div class="metric-row"><span>MA Crossover:</span> <strong>{item['cross_signal']}</strong></div>
-            <div class="metric-row"><span>50 vs 200 SMA:</span> <strong>{'+' if item['sma_50'] > item['sma_200'] else '-'}${abs(item['sma_50'] - item['sma_200']):.2f}</strong></div>
+            <div class="column-title">{symbol} Technical Indicators</div>
+            <div class="metric-row"><span>20-Day SMA:</span> <strong>${item['sma_20']:.2f}</strong></div>
+            <div class="metric-row"><span>50-Day SMA:</span> <strong>${item['sma_50']:.2f}</strong></div>
+            <div class="metric-row"><span>200-Day SMA:</span> <strong>${item['sma_200']:.2f}</strong></div>
+            <div class="metric-row"><span>RSI (14):</span> <strong>{item['rsi']:.1f} ({item['rsi_status']})</strong></div>
+            <div class="metric-row" style="margin-top: 8px;"><span>20 vs 50 SMA:</span> <strong style="font-size: 11px;">{item['cross_20_50']}</strong></div>
+            <div class="metric-row"><span>50 vs 200 SMA:</span> <strong style="font-size: 11px;">{item['cross_50_200']}</strong></div>
             <div class="signal-badge" style="background-color: {'#dafbe1' if 'BUY' in item['action_signal'] or 'HOLD' in item['action_signal'] else '#ffebe9'}; color: {'#1a7f37' if 'BUY' in item['action_signal'] or 'HOLD' in item['action_signal'] else '#cf222e'};">
                 Action: {item['action_signal']}
             </div>
@@ -312,7 +342,6 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         .header h1 {{ margin: 0 0 8px 0; font-size: 24px; }}
         .header .timestamp {{ color: #57606a; font-size: 14px; }}
         
-        /* 3-Column Aligned Grid */
         .three-column-grid {{
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -360,7 +389,7 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
             font-weight: 600;
             display: inline-block;
         }}
-        .signal-badge {{ font-size: 13px; padding: 6px 12px; margin-top: 8px; font-weight: bold; width: 100%; text-align: center; box-sizing: border-box; }}
+        .signal-badge {{ font-size: 13px; padding: 6px 12px; margin-top: 12px; font-weight: bold; width: 100%; text-align: center; box-sizing: border-box; }}
 
         .metric-row {{
             display: flex;
@@ -368,12 +397,6 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
             font-size: 13px;
             padding: 6px 0;
             border-bottom: 1px dashed #e1e4e8;
-        }}
-        .metric-status {{
-            font-size: 12px;
-            font-weight: bold;
-            text-align: right;
-            margin-top: 4px;
         }}
 
         .section-box {{
@@ -388,18 +411,18 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         
         .macro-grid {{
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 12px;
             margin-top: 12px;
         }}
         .macro-item {{
-            background: #f6f8fa;
             padding: 12px;
             border-radius: 6px;
-            border: 1px solid #e1e4e8;
+            border: 1px solid #d0d7de;
         }}
-        .macro-label {{ font-size: 11px; color: #57606a; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }}
-        .macro-value {{ font-size: 14px; font-weight: bold; color: #24292f; }}
+        .macro-label {{ font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; opacity: 0.8; }}
+        .macro-value {{ font-size: 14px; font-weight: bold; margin-bottom: 6px; }}
+        .macro-comment {{ font-size: 12px; line-height: 1.3; opacity: 0.9; }}
 
         ul.custom-list {{ margin: 8px 0; padding-left: 18px; color: #24292f; line-height: 1.5; font-size: 13px; }}
         ul.custom-list li {{ margin-bottom: 6px; }}
@@ -423,81 +446,106 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
             <div class="timestamp">Last Updated: {update_time_str} Mountain Time</div>
         </div>
 
-        <!-- Section 1: Top Summary Cards (Column 1: SPY | Column 2: DIA | Column 3: QQQ) -->
+        <!-- Section 1: Executive Summary -->
         <h2>1. Executive Summary & 52-Week Ranges</h2>
         <div class="three-column-grid">
             {cards_html}
         </div>
 
-        <!-- Section 2: Technicals -->
-        <h2>2. Technicals</h2>
+        <!-- Section 2: Technical Ratings (Full Box Colored: Bull / Neutral / Bear) -->
+        <h2>2. Technical Ratings & Rationale</h2>
         <div class="three-column-grid">
-            {tech_columns}
+            {sec2_columns}
         </div>
 
-        <!-- Section 3: Macro & Valuation Context (11 Key Indicators) -->
+        <!-- Section 3: Macro & Valuation Context (Colored Boxes with Rationale) -->
         <div class="section-box">
             <h2>3. Macro & Valuation Context (11 Core Indicators)</h2>
             <div class="macro-grid">
-                <div class="macro-item">
+                
+                <!-- Red / High Risk Indicators -->
+                <div class="macro-item" style="background-color: #ffebe9; color: #cf222e;">
                     <div class="macro-label">1. Shiller CAPE Ratio</div>
-                    <div class="macro-value">41.05 (Elevated / Top Quintile)</div>
+                    <div class="macro-value">41.05 (Elevated)</div>
+                    <div class="macro-comment">Top quintile historically; suggests limited long-term valuation expansion.</div>
                 </div>
-                <div class="macro-item">
-                    <div class="macro-label">2. Yield Curve (10Y - 2Y)</div>
-                    <div class="macro-value">Un-inverting / Neutral</div>
+
+                <div class="macro-item" style="background-color: #ffebe9; color: #cf222e;">
+                    <div class="macro-label">2. Fed Balance Sheet</div>
+                    <div class="macro-value">QT Ongoing</div>
+                    <div class="macro-comment">Continued balance sheet runoff drains net systemic liquidity over time.</div>
                 </div>
-                <div class="macro-item">
-                    <div class="macro-label">3. Fed Funds Rate</div>
-                    <div class="macro-value">Restrictive Regime</div>
+
+                <div class="macro-item" style="background-color: #ffebe9; color: #cf222e;">
+                    <div class="macro-label">3. S&P Dividend Yield</div>
+                    <div class="macro-value">1.25% (Low)</div>
+                    <div class="macro-comment">Below long-term averages; offers negligible downside yield support.</div>
                 </div>
-                <div class="macro-item">
-                    <div class="macro-label">4. Fed Balance Sheet</div>
-                    <div class="macro-value">Quantitative Tightening (QT)</div>
+
+                <!-- Yellow / Neutral Indicators -->
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">4. Yield Curve (10Y-2Y)</div>
+                    <div class="macro-value">Un-inverting</div>
+                    <div class="macro-comment">Transitioning out of inversion; historically warrants late-cycle caution.</div>
                 </div>
-                <div class="macro-item">
-                    <div class="macro-label">5. High Yield Spreads</div>
-                    <div class="macro-value">Tight (Low Stress)</div>
+
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">5. Fed Funds Rate</div>
+                    <div class="macro-value">Restrictive Horizon</div>
+                    <div class="macro-comment">Rates remain elevated above neutral level to curb lingering inflation.</div>
                 </div>
-                <div class="macro-item">
-                    <div class="macro-label">6. S&P 500 Dividend Yield</div>
-                    <div class="macro-value">Below Historical Average</div>
+
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">6. Inflation CPI</div>
+                    <div class="macro-value">Moderating</div>
+                    <div class="macro-comment">Trending toward policy target, but service sector stickiness persists.</div>
                 </div>
-                <div class="macro-item">
-                    <div class="macro-label">7. Real GDP Growth</div>
-                    <div class="macro-value">Moderate Expansion</div>
+
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">7. Consumer Sentiment</div>
+                    <div class="macro-value">Rangebound</div>
+                    <div class="macro-comment">Balanced between steady labor markets and higher living costs.</div>
                 </div>
-                <div class="macro-item">
-                    <div class="macro-label">8. Inflation CPI</div>
-                    <div class="macro-value">Moderating Trend</div>
-                </div>
-                <div class="macro-item">
-                    <div class="macro-label">9. Consumer Sentiment</div>
-                    <div class="macro-value">Neutral / Rangebound</div>
-                </div>
-                <div class="macro-item">
-                    <div class="macro-label">10. US Dollar Index (DXY)</div>
+
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">8. US Dollar (DXY)</div>
                     <div class="macro-value">Stable Range</div>
+                    <div class="macro-comment">Neutral impact on multinational corporate earnings performance.</div>
                 </div>
-                <div class="macro-item">
-                    <div class="macro-label">11. Market Cycle Phase</div>
-                    <div class="macro-value">Late Cycle Expansion</div>
+
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">9. Market Cycle Phase</div>
+                    <div class="macro-value">Late Expansion</div>
+                    <div class="macro-comment">High earnings expectations require strict execution and profit discipline.</div>
                 </div>
+
+                <!-- Green / Low Risk Indicators -->
+                <div class="macro-item" style="background-color: #dafbe1; color: #1a7f37;">
+                    <div class="macro-label">10. High Yield Spreads</div>
+                    <div class="macro-value">Tight (Low Stress)</div>
+                    <div class="macro-comment">Credit markets signal minimal immediate default risk or liquidity freeze.</div>
+                </div>
+
+                <div class="macro-item" style="background-color: #dafbe1; color: #1a7f37;">
+                    <div class="macro-label">11. Real GDP Growth</div>
+                    <div class="macro-value">Positive Expansion</div>
+                    <div class="macro-comment">Economic activity continues to support underlying corporate earnings.</div>
+                </div>
+
             </div>
         </div>
 
         <!-- Section 4: Conservative Allocation Execution Roadmap -->
         <div class="section-box">
             <h2>4. Conservative Allocation & Execution Roadmap</h2>
-            <p style="font-size: 13px; color: #57606a;">Execution instructions to maintain target 80/20 portfolio strategy and preserve capital.</p>
             <div class="three-column-grid">
                 {sec4_columns}
             </div>
         </div>
 
-        <!-- Section 5: Trend & Crossover Action Signals -->
+        <!-- Section 5: Moving Averages, RSI-14 & Crossovers -->
         <div class="section-box">
-            <h2>5. Moving Average Crossovers & Action Signals</h2>
+            <h2>5. Moving Averages, RSI-14 & Crossover Signals</h2>
             <div class="three-column-grid">
                 {sec5_columns}
             </div>
@@ -554,13 +602,12 @@ def main():
         except Exception as e:
             print(f"Error fetching {symbol}: {e}")
 
-    # Fetch VIX index
     vix_val, vix_change = fetch_vix_data()
 
     prev_snapshot = load_previous_snapshot()
     generate_html(market_data, vix_val, vix_change, prev_snapshot, update_time_str)
     save_current_snapshot(market_data, vix_val)
-    print("Report generated successfully with full 3-column alignment across all sections!")
+    print("Report generated successfully with updated sections 2, 3, and 5!")
 
 if __name__ == "__main__":
     main()
