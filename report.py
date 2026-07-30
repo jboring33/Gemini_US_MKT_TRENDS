@@ -34,14 +34,13 @@ def calculate_atr(df, period=14):
 
 def evaluate_combined_status(current_price, low_52, high_52, market_cycle_phase):
     """
-    Combines 52-Week Range Position AND Market Cycle Phase to evaluate overall color status.
+    Combines 52-Week Range Position AND Market Cycle Phase to evaluate overall color status for Section 1.
     """
     if high_52 == low_52:
         pct = 0.0
     else:
         pct = (current_price - low_52) / (high_52 - low_52) * 100
 
-    # 52-Week Rationale
     if pct >= 80:
         range_rationale = f"Trading in top 20% of 52-week range ({pct:.1f}%). Upper valuation extension limits headroom."
     elif pct >= 25:
@@ -49,7 +48,6 @@ def evaluate_combined_status(current_price, low_52, high_52, market_cycle_phase)
     else:
         range_rationale = f"Lower range position ({pct:.1f}%). Price is discounted relative to 52-week peak."
 
-    # Combined Matrix: 52-Wk Range + Market Cycle Phase
     if pct >= 80 or market_cycle_phase == "Late Cycle / Overextended":
         combined_color = "red"
         bg_color = "#ffebe9" # Red
@@ -67,6 +65,33 @@ def evaluate_combined_status(current_price, low_52, high_52, market_cycle_phase)
         badge_text = "GREEN (Accumulate / Value)"
 
     return pct, range_rationale, combined_color, bg_color, text_color, badge_text
+
+def evaluate_atr_status(atr, current_price):
+    """
+    Evaluates 14-ATR volatility and returns card colors, badge text, and rationale.
+    """
+    atr_pct = (atr / current_price) * 100
+    
+    if atr_pct > 1.5:
+        atr_color = "red"
+        atr_bg = "#ffebe9" # Red
+        atr_text_color = "#cf222e"
+        atr_badge = "HIGH VOLATILITY"
+        atr_rationale = f"14-Day ATR of ${atr:.2f} (~{atr_pct:.2f}% of price) indicates elevated short-term volatility. Widen trailing stops to avoid whip-saw stops."
+    elif atr_pct >= 1.2:
+        atr_color = "yellow"
+        atr_bg = "#fff8c5" # Yellow
+        atr_text_color = "#9a6700"
+        atr_badge = "MODERATE VOLATILITY"
+        atr_rationale = f"14-Day ATR of ${atr:.2f} (~{atr_pct:.2f}% of price) reflects typical late-cycle price swings. Maintain standard risk boundaries."
+    else:
+        atr_color = "green"
+        atr_bg = "#dafbe1" # Green
+        atr_text_color = "#1a7f37"
+        atr_badge = "LOW VOLATILITY"
+        atr_rationale = f"14-Day ATR of ${atr:.2f} (~{atr_pct:.2f}% of price) signals a calm trading environment with minimal daily noise."
+
+    return atr_pct, atr_bg, atr_text_color, atr_badge, atr_rationale
 
 def fetch_ticker_data(symbol):
     ticker = yf.Ticker(symbol)
@@ -112,10 +137,17 @@ def fetch_ticker_data(symbol):
 
     cycle_info = etf_cycles.get(symbol, {"phase": "Expansion", "rationale": "Standard economic expansion."})
 
-    # Combined Assessment Calculation
+    # Combined Assessment Calculation for Section 1
     range_pct, range_rationale, combined_color, bg_color, text_color, badge_text = evaluate_combined_status(
         current_price, low_52, high_52, cycle_info["phase"]
     )
+
+    # Technical Indicators
+    rsi = calculate_rsi(hist['Close'], period=14)
+    atr = calculate_atr(hist, period=14)
+
+    # ATR Assessment Calculation for Section 2
+    atr_pct, atr_bg, atr_text_color, atr_badge, atr_rationale = evaluate_atr_status(atr, current_price)
 
     # Crossover Logic
     cross_20_50 = "20-SMA Above 50-SMA (Bullish Trend)" if sma_20 > sma_50 else "20-SMA Below 50-SMA (Short-term Weakness)"
@@ -138,22 +170,11 @@ def fetch_ticker_data(symbol):
         elif current_price < sma_200 and sma_50 < sma_200:
             action_signal = "REDUCE / SWEEP CASH"
 
-    rsi = calculate_rsi(hist['Close'], period=14)
-    atr = calculate_atr(hist, period=14)
-
     rsi_status = "Neutral (30-70)"
     if rsi >= 70:
         rsi_status = "Overbought (>70)"
     elif rsi <= 30:
         rsi_status = "Oversold (<30)"
-
-    # Section 2 ATR Rationale
-    atr_pct = (atr / current_price) * 100
-    atr_rationale = f"14-Day ATR of ${atr:.2f} represents ~{atr_pct:.2f}% expected daily price fluctuation. "
-    if atr_pct > 1.2:
-        atr_rationale += "Elevated short-term volatility; widen trailing stop thresholds to prevent unwanted shakeouts."
-    else:
-        atr_rationale += "Normal volatility environment; structure standard risk parameters."
 
     return {
         "symbol": symbol,
@@ -176,6 +197,10 @@ def fetch_ticker_data(symbol):
         "rsi": rsi,
         "rsi_status": rsi_status,
         "atr": atr,
+        "atr_pct": atr_pct,
+        "atr_bg": atr_bg,
+        "atr_text_color": atr_text_color,
+        "atr_badge": atr_badge,
         "atr_rationale": atr_rationale,
         "cross_20_50": cross_20_50,
         "cross_50_200": cross_50_200,
@@ -273,7 +298,7 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         change_color = "#1a7f37" if change >= 0 else "#cf222e"
         change_sign = "+" if change >= 0 else ""
 
-        # Section 1: Executive Summary (Full Card Background Colored)
+        # Section 1: Executive Summary Card
         cards_html += f"""
         <div class="card" style="background-color: {item['bg_color']}; border: 1px solid #d0d7de;">
             <div class="card-header">
@@ -304,17 +329,20 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         </div>
         """
 
-        # Section 2: Technical Volatility Profile (ATR Rationale Focus)
+        # Section 2: Volatility Profile (Entire Card Colored by ATR Evaluation)
         sec2_columns += f"""
-        <div class="column-card" style="background-color: #ffffff; border: 1px solid #d0d7de;">
-            <div class="column-title" style="color: #0969da; border-bottom: 2px solid #0969da; font-weight: bold;">
-                {symbol} Volatility Analysis
+        <div class="column-card" style="background-color: {item['atr_bg']}; border: 1px solid #d0d7de;">
+            <div class="card-header">
+                <h3 style="margin:0; font-size: 18px; color: {item['atr_text_color']};">{symbol} Volatility</h3>
+                <span class="badge" style="background-color: #ffffff; color: {item['atr_text_color']}; border: 1px solid {item['atr_text_color']}; font-weight: bold;">
+                    {item['atr_badge']}
+                </span>
             </div>
-            <div class="metric-row">
-                <span>14-Day ATR Value:</span> <strong>${item['atr']:.2f}</strong>
+            <div class="metric-row" style="border-bottom: 1px dashed rgba(0,0,0,0.15); margin-top: 8px;">
+                <span>14-Day ATR Value:</span> <strong>${item['atr']:.2f} ({item['atr_pct']:.2f}%)</strong>
             </div>
             <div class="comment-box" style="margin-top: 12px; font-size: 13px; color: #24292f; line-height: 1.4;">
-                <strong>ATR Rationale:</strong> {item['atr_rationale']}
+                <strong>Evaluation Rationale:</strong> {item['atr_rationale']}
             </div>
         </div>
         """
@@ -493,8 +521,8 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
             {cards_html}
         </div>
 
-        <!-- Section 2: Technical Volatility Profile (14-ATR Rationale) -->
-        <h2>2. Volatility Analysis (14-ATR Rationale)</h2>
+        <!-- Section 2: Technical Volatility Profile (Colored ATR Cards) -->
+        <h2>2. Volatility Analysis (14-ATR Risk Evaluation)</h2>
         <div class="three-column-grid">
             {sec2_columns}
         </div>
@@ -642,7 +670,7 @@ def main():
     prev_snapshot = load_previous_snapshot()
     generate_html(market_data, vix_val, vix_change, prev_snapshot, update_time_str)
     save_current_snapshot(market_data, vix_val)
-    print("Report generated successfully with all sections intact and updated!")
+    print("Report generated successfully with colored ATR cards in Section 2!")
 
 if __name__ == "__main__":
     main()
