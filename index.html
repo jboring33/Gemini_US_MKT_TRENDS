@@ -2,537 +2,189 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>CoPilot US Markets Trends Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Dashboard</title>
     <style>
-:root {
-    --bg: #0b1020;
-    --bg-card: #141a2f;
-    --bg-card-soft: #181f36;
-    --text-main: #f5f7ff;
-    --text-muted: #a9b0c7;
-    --border-soft: #252b45;
-    --accent-blue: #4ea3ff;
-    --accent-green: #3cc46b;
-    --accent-yellow: #f7c948;
-    --accent-red: #ff5c5c;
-    --accent-grey: #6b7280;
-    --accent-bar-bg: #1f253b;
-    --accent-bar-fill: #4ea3ff;
-    --font-main: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-* { box-sizing: border-box; }
-body {
-    margin: 0; padding: 0;
-    font-family: var(--font-main);
-    background: radial-gradient(circle at top, #1b2340 0, #050814 55%);
-    color: var(--text-main);
-}
-.page { max-width: 1200px; margin: 0 auto; padding: 32px 20px 48px; }
-h1, h2, h3 { margin: 0; font-weight: 600; }
-h1 { font-size: 1.6rem; letter-spacing: 0.03em; }
-h2 { font-size: 1.2rem; }
-h3 { font-size: 1rem; }
-p { margin: 4px 0 6px; font-size: 0.9rem; color: var(--text-muted); }
-.section {
-    margin-bottom: 28px; padding: 18px 20px 20px;
-    border-radius: 14px;
-    background: linear-gradient(135deg, #141a2f 0, #101628 40%, #141a2f 100%);
-    border: 1px solid var(--border-soft);
-}
-.section-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
-.section-title { display: flex; flex-direction: column; gap: 4px; }
-.section-title span.section-subtitle { font-size: 0.8rem; color: var(--text-muted); }
-.section-tag {
-    font-size: 0.75rem; padding: 3px 8px; border-radius: 999px;
-    border: 1px solid var(--accent-blue); color: var(--accent-blue);
-    text-transform: uppercase; letter-spacing: 0.06em;
-}
-.tag-green { border-color: var(--accent-green); color: var(--accent-green); }
-.tag-yellow { border-color: var(--accent-yellow); color: var(--accent-yellow); }
-.tag-red { border-color: var(--accent-red); color: var(--accent-red); }
-.ticker-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-.ticker-card { padding: 12px 12px 14px; border-radius: 12px; background: var(--bg-card-soft); border: 1px solid #222842; }
-.ticker-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
-.ticker-name { font-size: 0.95rem; font-weight: 600; }
-.ticker-symbol { font-size: 0.8rem; color: var(--text-muted); }
-.ticker-price { font-size: 1.2rem; font-weight: 600; color: var(--accent-blue); }
-.ticker-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; margin-top: 6px; }
-.metric-label { font-size: 0.75rem; color: var(--text-muted); }
-.metric-value { font-size: 0.85rem; color: var(--text-main); }
-.metric-value-green { color: var(--accent-green); }
-.metric-value-yellow { color: var(--accent-yellow); }
-.metric-value-red { color: var(--accent-red); }
-.range-bar-wrapper { margin-top: 8px; }
-.range-bar-label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 2px; }
-.range-bar { width: 100%; height: 8px; border-radius: 999px; background: var(--accent-bar-bg); overflow: hidden; position: relative; }
-.range-bar-fill { height: 100%; border-radius: 999px; background: var(--accent-blue); width: 50%; }
-.range-bar-fill-green { background: var(--accent-green); }
-.range-bar-fill-yellow { background: var(--accent-yellow); }
-.range-bar-fill-red { background: var(--accent-red); }
-.range-bar-text { margin-top: 2px; font-size: 0.75rem; color: var(--text-muted); }
-.phase-note { margin-top: 6px; font-size: 0.78rem; color: var(--text-muted); }
-.table-wrapper { margin-top: 4px; overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-th, td { padding: 6px 8px; border-bottom: 1px solid #222842; }
-th { text-align: left; color: var(--text-muted); font-weight: 500; background: #161c33; }
-td { color: var(--text-main); }
-.cell-muted { color: var(--text-muted); }
-.cell-green { color: var(--accent-green); }
-.cell-yellow { color: var(--accent-yellow); }
-.cell-red { color: var(--accent-red); }
-.score-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-.score-card { padding: 12px 12px 14px; border-radius: 12px; background: var(--bg-card-soft); border: 1px solid #222842; }
-.score-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
-.score-value { font-size: 1.1rem; font-weight: 600; }
-.score-bar-shell { margin-top: 4px; width: 100%; height: 10px; border-radius: 999px; background: var(--accent-bar-bg); overflow: hidden; }
-.score-bar-fill { height: 100%; border-radius: 999px; width: 50%; background: var(--accent-green); }
-.score-bar-fill-yellow { height: 100%; border-radius: 999px; width: 50%; background: var(--accent-yellow); }
-.score-bar-fill-red { height: 100%; border-radius: 999px; width: 50%; background: var(--accent-red); }
-.score-note { margin-top: 6px; font-size: 0.78rem; color: var(--text-muted); }
-.indicator-list { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
-.indicator-item { padding: 8px 10px; border-radius: 10px; background: #151b32; border: 1px solid #222842; }
-.indicator-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
-.indicator-name { font-size: 0.85rem; font-weight: 500; }
-.indicator-meta { font-size: 0.75rem; color: var(--text-muted); }
-.indicator-bar-shell { margin-top: 4px; width: 100%; height: 8px; border-radius: 999px; background: var(--accent-bar-bg); overflow: hidden; }
-.indicator-bar-fill { height: 100%; border-radius: 999px; width: 40%; background: var(--accent-green); }
-.indicator-bar-fill-yellow { height: 100%; border-radius: 999px; width: 40%; background: var(--accent-yellow); }
-.indicator-bar-fill-red { height: 100%; border-radius: 999px; width: 40%; background: var(--accent-red); }
-.indicator-footer { margin-top: 4px; display: flex; justify-content: space-between; align-items: baseline; font-size: 0.75rem; }
-.indicator-comment { color: var(--text-muted); }
-.composite-wrapper { margin-top: 6px; }
-.composite-scale-labels { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px; }
-.composite-bar-shell { width: 100%; height: 12px; border-radius: 999px; background: var(--accent-bar-bg); position: relative; overflow: hidden; }
-.composite-bar-fill { position: absolute; top: 0; left: 0; height: 100%; background: var(--accent-yellow); border-radius: 999px; }
-.composite-bar-fill-green { position: absolute; top: 0; left: 0; height: 100%; background: var(--accent-green); border-radius: 999px; }
-.composite-bar-fill-yellow { position: absolute; top: 0; left: 0; height: 100%; background: var(--accent-yellow); border-radius: 999px; }
-.composite-bar-fill-red { position: absolute; top: 0; left: 0; height: 100%; background: var(--accent-red); border-radius: 999px; }
-.composite-marker { position: absolute; top: -2px; width: 4px; height: 16px; border-radius: 999px; background: var(--accent-blue); }
-.composite-score-row { margin-top: 6px; display: flex; justify-content: space-between; align-items: baseline; }
-.composite-score-value { font-size: 1.1rem; font-weight: 600; }
-.composite-score-label { font-size: 0.8rem; color: var(--text-muted); }
-.composite-note { margin-top: 4px; font-size: 0.78rem; color: var(--text-muted); }
-.guidance-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 6px; }
-.guidance-card { padding: 10px 12px 12px; border-radius: 12px; background: var(--bg-card-soft); border: 1px solid #222842; }
-.guidance-card h3 { margin-bottom: 6px; }
-.guidance-list { margin: 0; padding-left: 16px; font-size: 0.8rem; color: var(--text-muted); }
-.guidance-list li { margin-bottom: 4px; }
-.risk-red { color: var(--accent-red); }
-.risk-yellow { color: var(--accent-yellow); }
-.risk-green { color: var(--accent-green); }
-.allocation-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 6px; }
-.allocation-card { padding: 10px 12px 12px; border-radius: 12px; background: var(--bg-card-soft); border: 1px solid #222842; }
-.allocation-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
-.allocation-range { font-size: 0.8rem; color: var(--text-muted); }
-.allocation-note { margin-top: 4px; font-size: 0.78rem; color: var(--text-muted); }
-.allocation-note-green { color: var(--accent-green); }
-.allocation-note-yellow { color: var(--accent-yellow); }
-.allocation-note-red { color: var(--accent-red); }
-@media (max-width: 900px) {
-    .ticker-grid, .score-grid, .guidance-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); }
-    .allocation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 600px) {
-    .allocation-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); }
-}
-</style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f6f8fa;
+            color: #24292f;
+            margin: 0;
+            padding: 24px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .header {
+            margin-bottom: 24px;
+            border-bottom: 1px solid #d0d7de;
+            padding-bottom: 12px;
+        }
+        .header h1 { margin: 0 0 8px 0; font-size: 24px; }
+        .header .timestamp { color: #57606a; font-size: 14px; }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        .card {
+            background: #ffffff;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .card-header h3 { margin: 0; font-size: 18px; }
+        .price-main { font-size: 28px; font-weight: bold; margin-bottom: 4px; }
+        .price-change { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+        .delta-info { font-size: 12px; color: #57606a; border-top: 1px solid #f0f0f0; padding-top: 8px; }
+        
+        .badge {
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #ffffff;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #d0d7de;
+        }
+        th { background-color: #f6f8fa; font-size: 12px; text-transform: uppercase; color: #57606a; }
+        tr:last-child td { border-bottom: none; }
+    </style>
 </head>
 <body>
-<div class="page">
-    <section class="section" id="macro-dashboard">
-        <div class="section-header">
-            <div class="section-title">
-                <h1>SPY · DIA · QQQ — Macro Trend Dashboard</h1>
-                <span class="section-subtitle">
-                    Run date: 2026-07-30 • Last run: N/A N/A
+    <div class="container">
+        <div class="header">
+            <h1>Market Dashboard (SPY / DIA / QQQ)</h1>
+            <div class="timestamp">Last Updated: 2026-07-30 12:04:25 PM MDT Mountain Time</div>
+        </div>
+
+        <div class="grid">
+            
+        <div class="card">
+            <div class="card-header">
+                <h3>SPY</h3>
+                <span class="badge" style="background-color: #ffebe9; color: #cf222e;">
+                    87.3% (High Range)
                 </span>
             </div>
-            <span class="section-tag">Macro overview</span>
-        </div>
-
-        <div class="ticker-grid">
-            <div class="ticker-card" id="spy-card">
-                <div class="ticker-header">
-                    <div>
-                        <div class="ticker-name">SPY — S&P 500</div>
-                        <div class="ticker-symbol">SPDR S&P 500 ETF Trust</div>
-                    </div>
-                    <div class="ticker-price">550.12</div>
-                </div>
-                <div class="ticker-metrics">
-                    <div><div class="metric-label">YTD</div><div class="metric-value metric-value-green">8.4% (Δ +8.40)</div></div>
-                    <div><div class="metric-label">Forward P/E</div><div class="metric-value">20.5</div></div>
-                    <div><div class="metric-label">52‑wk low</div><div class="metric-value">480.0</div></div>
-                    <div><div class="metric-label">52‑wk high</div><div class="metric-value">560.0</div></div>
-                    <div><div class="metric-label">Dividend yield</div><div class="metric-value">1.4%</div></div>
-                    <div><div class="metric-label">Market phase</div><div class="metric-value metric-value-yellow">Late-cycle, neutral–cautious</div></div>
-                </div>
-                <div class="range-bar-wrapper">
-                    <div class="range-bar-label">52‑wk range position</div>
-                    <div class="range-bar"><div class="range-bar-fill range-bar-fill-green" style="width: 87.7%;"></div></div>
-                    <div class="range-bar-text">87.7% of 52‑wk low–high range</div>
-                </div>
-                <div class="phase-note">SPY remains in a late‑cycle, neutral–cautious phase. Valuations are full, but breadth is acceptable and macro conditions are not yet outright recessionary.</div>
+            <div class="price-main">$739.88</div>
+            <div class="price-change" style="color: #1a7f37;">
+                +$10.42 (+1.43%)
             </div>
-
-            <div class="ticker-card" id="dia-card">
-                <div class="ticker-header">
-                    <div>
-                        <div class="ticker-name">DIA — Dow Jones ETF</div>
-                        <div class="ticker-symbol">SPDR Dow Jones Industrial Average ETF Trust</div>
-                    </div>
-                    <div class="ticker-price">405.34</div>
-                </div>
-                <div class="ticker-metrics">
-                    <div><div class="metric-label">YTD</div><div class="metric-value metric-value-green">6.1% (Δ +6.10)</div></div>
-                    <div><div class="metric-label">Forward P/E</div><div class="metric-value">18.2</div></div>
-                    <div><div class="metric-label">52‑wk low</div><div class="metric-value">340.0</div></div>
-                    <div><div class="metric-label">52‑wk high</div><div class="metric-value">410.0</div></div>
-                    <div><div class="metric-label">Dividend yield</div><div class="metric-value">2.1%</div></div>
-                    <div><div class="metric-label">Market phase</div><div class="metric-value metric-value-green">Late-cycle, relatively defensive</div></div>
-                </div>
-                <div class="range-bar-wrapper">
-                    <div class="range-bar-label">52‑wk range position</div>
-                    <div class="range-bar"><div class="range-bar-fill range-bar-fill-green" style="width: 93.3%;"></div></div>
-                    <div class="range-bar-text">93.3% of 52‑wk low–high range</div>
-                </div>
-                <div class="phase-note">DIA screens as relatively defensive, with more industrials and value exposure. It remains suitable as a core equity anchor for a modest‑risk retiree.</div>
-            </div>
-
-            <div class="ticker-card" id="qqq-card">
-                <div class="ticker-header">
-                    <div>
-                        <div class="ticker-name">QQQ — Nasdaq 100</div>
-                        <div class="ticker-symbol">Invesco QQQ Trust</div>
-                    </div>
-                    <div class="ticker-price">480.56</div>
-                </div>
-                <div class="ticker-metrics">
-                    <div><div class="metric-label">YTD</div><div class="metric-value metric-value-green">12.7% (Δ +12.70)</div></div>
-                    <div><div class="metric-label">Off ATH</div><div class="metric-value metric-value-red">-4.0% (Δ -4.00)</div></div>
-                    <div><div class="metric-label">52‑wk low</div><div class="metric-value">390.0</div></div>
-                    <div><div class="metric-label">52‑wk high</div><div class="metric-value">510.0</div></div>
-                    <div><div class="metric-label">Dividend yield</div><div class="metric-value">0.7%</div></div>
-                    <div><div class="metric-label">Market phase</div><div class="metric-value metric-value-red">Extended, momentum-driven, vulnerable to air pockets</div></div>
-                </div>
-                <div class="range-bar-wrapper">
-                    <div class="range-bar-label">52‑wk range position</div>
-                    <div class="range-bar"><div class="range-bar-fill range-bar-fill-yellow" style="width: 75.5%;"></div></div>
-                    <div class="range-bar-text">75.5% of 52‑wk low–high range</div>
-                </div>
-                <div class="phase-note">QQQ is extended and heavily concentrated in mega‑cap tech. Momentum is strong, but drawdown risk is elevated and not ideal for incremental retiree capital at current levels.</div>
-            </div>
-        </div>
-    </section>
-
-    <section class="section" id="retiree-head-to-head">
-        <div class="section-header">
-            <div class="section-title">
-                <h1>Head‑to‑Head — Retiree Lens</h1>
-                <span class="section-subtitle">Comparative risk and suitability</span>
-            </div>
-            <span class="section-tag tag-yellow">Retiree focus</span>
-        </div>
-        <div class="table-wrapper">
-            <table>
-                <tr><th>Metric</th><th>SPY</th><th>DIA</th><th>QQQ</th></tr>
-                <tr><td>YTD 2026 return</td><td class="cell-green">8.4% (Δ +8.40)</td><td class="cell-green">6.1% (Δ +6.10)</td><td class="cell-green">12.7% (Δ +12.70)</td></tr>
-                <tr><td>From 52‑wk high</td><td class="cell-yellow">-1.8% (Δ -1.80)</td><td class="cell-yellow">-1.2% (Δ -1.20)</td><td class="cell-red">-3.5%</td></tr>
-                <tr><td>Market cycle phase</td><td class="cell-yellow">Late-cycle, neutral–cautious</td><td class="cell-green">Late-cycle, relatively defensive</td><td class="cell-red">Extended, momentum-driven, vulnerable to air pockets</td></tr>
-                <tr><td>Beta / volatility</td><td class="cell-yellow">1.0</td><td class="cell-green">0.85</td><td class="cell-red">1.25</td></tr>
-                <tr><td>Dividend yield</td><td class="cell-yellow">1.4%</td><td class="cell-green">2.1%</td><td class="cell-red">0.7%</td></tr>
-                <tr><td>AI / tech concentration</td><td class="cell-yellow">High but diversified</td><td class="cell-green">Moderate, more industrials</td><td class="cell-red">Very high, mega-cap tech heavy</td></tr>
-                <tr><td>Estimated drawdown risk</td><td class="cell-yellow">22.0%</td><td class="cell-green">15.0%</td><td class="cell-red">30.0%</td></tr>
-                <tr><td>Retiree suitability</td><td class="cell-yellow">68 (Δ +68.00)</td><td class="cell-green">78 (Δ +78.00)</td><td class="cell-red">42 (Δ +42.00)</td></tr>
-            </table>
-        </div>
-    </section>
-
-    <section class="section" id="retiree-scores">
-        <div class="section-header">
-            <div class="section-title">
-                <h1>Retiree Suitability Scores — Modest Risk Profile</h1>
-                <span class="section-subtitle">Score changes since last run</span>
-            </div>
-            <span class="section-tag tag-green">Suitability</span>
-        </div>
-        <div class="score-grid">
-            <div class="score-card" id="spy-score">
-                <div class="score-header"><h2>SPY — S&P 500</h2><div class="score-value">68 / 100</div></div>
-                <div class="score-bar-shell"><div class="score-bar-fill-yellow" style="width: 68%;"></div></div>
-                <div class="score-note">SPY suitability is 68 (Δ +68.00). Still acceptable for a modest‑risk retiree, but volatility and valuation argue for measured exposure rather than aggressive adds.</div>
-            </div>
-            <div class="score-card" id="dia-score">
-                <div class="score-header"><h2>DIA — Dow Jones ETF</h2><div class="score-value">78 / 100</div></div>
-                <div class="score-bar-shell"><div class="score-bar-fill" style="width: 78%;"></div></div>
-                <div class="score-note">DIA suitability is 78 (Δ +78.00). Dow exposure remains a strong candidate for core equity weight, given lower beta and more defensive sector mix.</div>
-            </div>
-            <div class="score-card" id="qqq-score">
-                <div class="score-header"><h2>QQQ — Nasdaq 100</h2><div class="score-value">42 / 100</div></div>
-                <div class="score-bar-shell"><div class="score-bar-fill-red" style="width: 42%;"></div></div>
-                <div class="score-note">QQQ suitability is 42 (Δ +42.00). High concentration and elevated drawdown risk keep this sleeve small and tactical for a retiree profile.</div>
-            </div>
-        </div>
-    </section>
-
-    <section class="section" id="macro-indicators">
-        <div class="section-header">
-            <div class="section-title">
-                <h1>11 Macro Indicators — Ranked by Predictive Weight</h1>
-                <span class="section-subtitle">Same indicator set each run, with updated scores</span>
-            </div>
-            <span class="section-tag tag-yellow">Macro signals</span>
-        </div>
-        <div class="indicator-list">
-        <div class="indicator-item">
-            <div class="indicator-header">
-                <div class="indicator-name">Federal Reserve policy stance</div>
-                <div class="indicator-meta">Weight: High</div>
-            </div>
-            <div class="indicator-bar-shell">
-                <div class="indicator-bar-fill-yellow" style="width: 55%;"></div>
-            </div>
-            <div class="indicator-footer">
-                <span class="indicator-comment">Policy is restrictive but not tightening further; cuts are data‑dependent.</span>
-                <span class="indicator-meta">Cautious / mixed</span>
+            <div class="delta-info">
+                <span>Since Last Run:</span> 
+                <strong style="color: #57606a;">N/A</strong>
             </div>
         </div>
         
-
-        <div class="indicator-item">
-            <div class="indicator-header">
-                <div class="indicator-name">Forward P/E ratio (S&P 500)</div>
-                <div class="indicator-meta">Weight: High</div>
+        <div class="card">
+            <div class="card-header">
+                <h3>DIA</h3>
+                <span class="badge" style="background-color: #ffebe9; color: #cf222e;">
+                    88.9% (High Range)
+                </span>
             </div>
-            <div class="indicator-bar-shell">
-                <div class="indicator-bar-fill-yellow" style="width: 60%;"></div>
+            <div class="price-main">$520.66</div>
+            <div class="price-change" style="color: #1a7f37;">
+                +$5.25 (+1.02%)
             </div>
-            <div class="indicator-footer">
-                <span class="indicator-comment">Valuations are full, limiting upside for a retiree without pullbacks.</span>
-                <span class="indicator-meta">Cautious / mixed</span>
-            </div>
-        </div>
-        
-
-        <div class="indicator-item">
-            <div class="indicator-header">
-                <div class="indicator-name">ICE BofA credit spread (IG OAS)</div>
-                <div class="indicator-meta">Weight: High</div>
-            </div>
-            <div class="indicator-bar-shell">
-                <div class="indicator-bar-fill" style="width: 40%;"></div>
-            </div>
-            <div class="indicator-footer">
-                <span class="indicator-comment">Credit spreads are not flashing stress, supporting a hold stance.</span>
-                <span class="indicator-meta">Bullish / supportive</span>
+            <div class="delta-info">
+                <span>Since Last Run:</span> 
+                <strong style="color: #57606a;">N/A</strong>
             </div>
         </div>
         
-
-        <div class="indicator-item">
-            <div class="indicator-header">
-                <div class="indicator-name">10‑year Treasury yield</div>
-                <div class="indicator-meta">Weight: Medium</div>
+        <div class="card">
+            <div class="card-header">
+                <h3>QQQ</h3>
+                <span class="badge" style="background-color: #fff8c5; color: #9a6700;">
+                    67.0% (Mid Range)
+                </span>
             </div>
-            <div class="indicator-bar-shell">
-                <div class="indicator-bar-fill-yellow" style="width: 50%;"></div>
+            <div class="price-main">$682.20</div>
+            <div class="price-change" style="color: #1a7f37;">
+                +$20.47 (+3.09%)
             </div>
-            <div class="indicator-footer">
-                <span class="indicator-comment">Yields are elevated but not disorderly; bonds remain viable for income.</span>
-                <span class="indicator-meta">Cautious / mixed</span>
-            </div>
-        </div>
-        
-
-        <div class="indicator-item">
-            <div class="indicator-header">
-                <div class="indicator-name">VIX</div>
-                <div class="indicator-meta">Weight: Medium</div>
-            </div>
-            <div class="indicator-bar-shell">
-                <div class="indicator-bar-fill-yellow" style="width: 45%;"></div>
-            </div>
-            <div class="indicator-footer">
-                <span class="indicator-comment">VIX at 16.5 (Δ +16.50) — not extreme, but worth monitoring.</span>
-                <span class="indicator-meta">Cautious / mixed</span>
+            <div class="delta-info">
+                <span>Since Last Run:</span> 
+                <strong style="color: #57606a;">N/A</strong>
             </div>
         </div>
         
-
-        <div class="indicator-item">
-            <div class="indicator-header">
-                <div class="indicator-name">M2 money supply</div>
-                <div class="indicator-meta">Weight: Medium</div>
-            </div>
-            <div class="indicator-bar-shell">
-                <div class="indicator-bar-fill-yellow" style="width: 50%;"></div>
-            </div>
-            <div class="indicator-footer">
-                <span class="indicator-comment">Liquidity is not abundant, but not collapsing; neutral for risk assets.</span>
-                <span class="indicator-meta">Cautious / mixed</span>
-            </div>
         </div>
+
+        <h2>Technical Details & 52-Week Ranges</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Ticker</th>
+                    <th>Current Price</th>
+                    <th>Daily Change</th>
+                    <th>52-Week Range (Low - High)</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                
+        <tr>
+            <td><strong>SPY</strong></td>
+            <td>$739.88</td>
+            <td style="color: #1a7f37;">+$10.42 (+1.43%)</td>
+            <td>$612.50 - $758.45</td>
+            <td>
+                <span class="badge" style="background-color: #ffebe9; color: #cf222e;">
+                    RED
+                </span>
+            </td>
+        </tr>
         
-
-        <div class="indicator-item">
-            <div class="indicator-header">
-                <div class="indicator-name">Price & momentum</div>
-                <div class="indicator-meta">Weight: Medium</div>
-            </div>
-            <div class="indicator-bar-shell">
-                <div class="indicator-bar-fill-yellow" style="width: 60%;"></div>
-            </div>
-            <div class="indicator-footer">
-                <span class="indicator-comment">Price action is constructive but extended in pockets, especially in QQQ.</span>
-                <span class="indicator-meta">Cautious / mixed</span>
-            </div>
-        </div>
+        <tr>
+            <td><strong>DIA</strong></td>
+            <td>$520.66</td>
+            <td style="color: #1a7f37;">+$5.25 (+1.02%)</td>
+            <td>$426.96 - $532.39</td>
+            <td>
+                <span class="badge" style="background-color: #ffebe9; color: #cf222e;">
+                    RED
+                </span>
+            </td>
+        </tr>
         
-
-        <div class="indicator-item">
-            <div class="indicator-header">
-                <div class="indicator-name">Michigan consumer sentiment</div>
-                <div class="indicator-meta">Weight: Low</div>
-            </div>
-            <div class="indicator-bar-shell">
-                <div class="indicator-bar-fill" style="width: 40%;"></div>
-            </div>
-            <div class="indicator-footer">
-                <span class="indicator-comment">Sentiment at 72.0 (Δ +72.00) — improving from lows.</span>
-                <span class="indicator-meta">Bullish / supportive</span>
-            </div>
-        </div>
+        <tr>
+            <td><strong>QQQ</strong></td>
+            <td>$682.20</td>
+            <td style="color: #1a7f37;">+$20.47 (+3.09%)</td>
+            <td>$549.04 - $747.83</td>
+            <td>
+                <span class="badge" style="background-color: #fff8c5; color: #9a6700;">
+                    YELLOW
+                </span>
+            </td>
+        </tr>
         
-
-        <div class="indicator-item">
-            <div class="indicator-header">
-                <div class="indicator-name">AAII sentiment survey</div>
-                <div class="indicator-meta">Weight: Low</div>
-            </div>
-            <div class="indicator-bar-shell">
-                <div class="indicator-bar-fill-yellow" style="width: 55%;"></div>
-            </div>
-            <div class="indicator-footer">
-                <span class="indicator-comment">Bulls at 38.0% (Δ +38.00) — not euphoric, but elevated.</span>
-                <span class="indicator-meta">Cautious / mixed</span>
-            </div>
-        </div>
-        
-
-        <div class="indicator-item">
-            <div class="indicator-header">
-                <div class="indicator-name">Earnings & EPS growth</div>
-                <div class="indicator-meta">Weight: Medium</div>
-            </div>
-            <div class="indicator-bar-shell">
-                <div class="indicator-bar-fill" style="width: 45%;"></div>
-            </div>
-            <div class="indicator-footer">
-                <span class="indicator-comment">Earnings are holding up; no broad earnings recession yet.</span>
-                <span class="indicator-meta">Bullish / supportive</span>
-            </div>
-        </div>
-        
-
-        <div class="indicator-item">
-            <div class="indicator-header">
-                <div class="indicator-name">Geopolitical / oil</div>
-                <div class="indicator-meta">Weight: Medium</div>
-            </div>
-            <div class="indicator-bar-shell">
-                <div class="indicator-bar-fill-yellow" style="width: 55%;"></div>
-            </div>
-            <div class="indicator-footer">
-                <span class="indicator-comment">Oil at 82.0 — below the key 95.0 risk threshold.</span>
-                <span class="indicator-meta">Cautious / mixed</span>
-            </div>
-        </div>
-        </div>
-    </section>
-
-    <section class="section" id="composite-score">
-        <div class="section-header">
-            <div class="section-title">
-                <h1>Weighted Composite Score — 2026-07-30</h1>
-                <span class="section-subtitle">Composite of 11 macro indicators</span>
-            </div>
-            <span class="section-tag tag-yellow">Neutral–cautious</span>
-        </div>
-        <div class="composite-wrapper">
-            <div class="composite-scale-labels">
-                <span>Bear (0)</span><span>Caution (25)</span><span>Neutral (50)</span><span>Mod. bull (75)</span><span>Bull (100)</span>
-            </div>
-            <div class="composite-bar-shell">
-                <div class="composite-bar-fill-yellow" style="width: 54%;"></div>
-                <div class="composite-marker" style="left: 54%;"></div>
-            </div>
-            <div class="composite-score-row">
-                <div class="composite-score-value">54</div>
-                <div class="composite-score-label">Neutral–cautious (Δ +54.00)</div>
-            </div>
-            <div class="composite-note">Composite score is 54 (Δ +54.00). Macro composite is neutral–cautious. A retiree can hold existing equity allocations, but new capital should be deployed patiently and preferably on pullbacks.</div>
-        </div>
-    </section>
-
-    <section class="section" id="forward-guidance">
-        <div class="section-header">
-            <div class="section-title">
-                <h1>Retiree Forward Guidance — 2026-07-30</h1>
-                <span class="section-subtitle">Positioning and risk triggers</span>
-            </div>
-            <span class="section-tag tag-yellow">Guidance</span>
-        </div>
-        <div class="guidance-grid">
-            <div class="guidance-card">
-                <h3>Hold positions — do not add at current levels</h3>
-                <p>Given a neutral–cautious macro backdrop, the guidance for a modest‑risk retiree is to hold existing positions rather than add aggressively at current levels. Volatility, valuations, and sentiment do not yet justify a full risk‑on stance.</p>
-                <ul class="guidance-list">
-                    <li class="risk-yellow">Composite score: 54 (Δ +54.00)</li>
-                    <li class="risk-yellow">VIX: 16.5 (Δ +16.50)</li>
-                    <li class="risk-yellow">AAII sentiment: 38.0% bulls (Δ +38.00)</li>
-                    <li class="risk-green">Michigan CSI: 72.0 (Δ +72.00)</li>
-                </ul>
-            </div>
-            <div class="guidance-card">
-                <h3>Key risks — watch these triggers</h3>
-                <p>Key risks to monitor include geopolitical shocks that push oil above the 95.0 level, a meaningful widening in credit spreads beyond 160.0 bps, and a VIX spike above 22.0 that would argue for a shift toward more defensive positioning.</p>
-                <ul class="guidance-list">
-                    <li class="risk-red">Iran escalation / oil above 95.0 sustained</li>
-                    <li class="risk-red">Fed divergence — projected cut removed if inflation re‑accelerates</li>
-                    <li class="risk-red">Credit spreads widening past 160.0 bps</li>
-                    <li class="risk-red">Risk trigger: VIX > 22.0 (current: 16.5)</li>
-                </ul>
-            </div>
-        </div>
-    </section>
-
-    <section class="section" id="allocation">
-        <div class="section-header">
-            <div class="section-title">
-                <h1>Suggested Equity Allocation for a Retiree</h1>
-                <span class="section-subtitle">Dynamic, modest‑risk profile — updates each run</span>
-            </div>
-            <span class="section-tag tag-green">Allocation</span>
-        </div>
-        <div class="allocation-grid">
-            <div class="allocation-card">
-                <div class="allocation-header"><h3>DIA — Dow Jones ETF</h3><span class="allocation-range">20–25%</span></div>
-                <div class="allocation-note allocation-note-green">DIA (Dow exposure) anchors the equity sleeve with lower beta and a more defensive sector mix. This is well‑aligned with a modest‑risk retiree profile.</div>
-            </div>
-            <div class="allocation-card">
-                <div class="allocation-header"><h3>SPY — S&P 500</h3><span class="allocation-range">40–50%</span></div>
-                <div class="allocation-note allocation-note-yellow">SPY provides broad U.S. equity exposure. It remains a core holding, but position size should respect valuations and volatility.</div>
-            </div>
-            <div class="allocation-card">
-                <div class="allocation-header"><h3>QQQ — Nasdaq 100</h3><span class="allocation-range">0–10%</span></div>
-                <div class="allocation-note allocation-note-red">QQQ is a tactical growth sleeve. For a retiree, this allocation stays small and is best used opportunistically rather than as a core holding.</div>
-            </div>
-            <div class="allocation-card">
-                <div class="allocation-header"><h3>Bonds & Cash</h3><span class="allocation-range">30–35%</span></div>
-                <div class="allocation-note allocation-note-green">Bonds and cash provide stability, income, and dry powder. This allocation is critical for preserving principal and managing sequence‑of‑returns risk.</div>
-            </div>
-        </div>
-    </section>
-</div>
+            </tbody>
+        </table>
+    </div>
 </body>
 </html>
