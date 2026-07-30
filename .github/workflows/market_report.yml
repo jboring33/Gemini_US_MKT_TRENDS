@@ -1,39 +1,62 @@
-name: Market Report
+name: Market Report Generator
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # Manual trigger via the "Run workflow" button
 
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: write
-  pages: write      # Required to trigger Pages deploy
-  id-token: write   # Required to trigger Pages deploy
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
-  generate-report:
+  build-and-report:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Check out repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.x'
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install yfinance pytz
+          pip install yfinance pandas pytz
 
-      - name: Run Report Generator
-        env:
-          TZ: "America/Denver"
+      - name: Run Market Report Generator
         run: python report.py
 
-      - name: Commit and push updated report & snapshots
+      - name: Commit and Push Updated Data & HTML
         run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add index.html last_run_snapshot.json
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update market report" && git push)
+          git diff-index --quiet HEAD || (git commit -m "Auto-update market report [skip ci]" && git push)
+
+      # Upload the generated site build artifact
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.' # Uploads repository root containing index.html
+
+  deploy-site:
+    needs: build-and-report
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
