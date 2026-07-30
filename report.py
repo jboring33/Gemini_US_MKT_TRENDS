@@ -124,7 +124,7 @@ def generate_html(data, prev_snapshot, update_time_str):
         </div>
         """
 
-        # Detailed Breakdown Table
+        # Detailed Breakdown Table (Section 2)
         table_rows += f"""
         <tr>
             <td><strong>{symbol}</strong></td>
@@ -235,8 +235,9 @@ def generate_html(data, prev_snapshot, update_time_str):
             border: 1px solid #e1e4e8;
         }}
         .metric-label {{ font-size: 12px; color: #57606a; font-weight: 600; margin-bottom: 4px; }}
-        .metric-value {{ font-size: 16px; font-weight: bold; color: #24292f; }}
-        ul.custom-list {{ margin: 8px 0; padding-left: 20px; color: #24292f; line-height: 1.5; }}
+        .metric-value {{ font-size: 15px; font-weight: bold; color: #24292f; }}
+        ul.custom-list {{ margin: 8px 0; padding-left: 20px; color: #24292f; line-height: 1.6; }}
+        ul.custom-list li {{ margin-bottom: 6px; }}
     </style>
 </head>
 <body>
@@ -271,86 +272,86 @@ def generate_html(data, prev_snapshot, update_time_str):
         <!-- Section 3: Macro & Valuation Context -->
         <div class="section-box">
             <h2>3. Macro & Valuation Context</h2>
-            <p>Monitors long-term valuation metrics, price-to-earnings metrics, and market cycle indicators to evaluate broad risk exposure.</p>
+            <p>Monitors long-term valuation metrics, broad market cycles, and valuation expansion limits to guide strategic exposure.</p>
             <div class="metric-grid">
                 <div class="metric-item">
-                    <div class="metric-label">Shiller CAPE Ratio</div>
-                    <div class="metric-value">Elevated (Historical High Zone)</div>
+                    <div class="metric-label">Shiller CAPE Zone</div>
+                    <div class="metric-value">Elevated (Historical Top Quintile)</div>
                 </div>
                 <div class="metric-item">
-                    <div class="metric-label">Market Cycle Status</div>
+                    <div class="metric-label">Market Cycle Phase</div>
                     <div class="metric-value">Late Cycle / Expansion</div>
                 </div>
                 <div class="metric-item">
-                    <div class="metric-label">Rate Environment</div>
-                    <div class="metric-value">Restrictive Neutral</div>
+                    <div class="metric-label">Macro Regime</div>
+                    <div class="metric-value">Neutral-Restrictive Yields</div>
                 </div>
             </div>
         </div>
 
-        <!-- Section 4: Retiree Allocation Suitability -->
+        <!-- Section 4: Conservative Allocation & Preservation -->
         <div class="section-box">
-            <h2>4. Conservative Allocation & Capital Preservation</h2>
-            <p>Framework evaluated for conservative investor profiles (e.g., 80/20 or core ETF preservation strategies seeking total return with low drawdowns).</p>
+            <h2>4. Conservative Allocation & Preservation Framework</h2>
+            <p>Tailored for systematic capital preservation targets (e.g., 80/20 core allocations seeking consistent annual total returns of 6–8%).</p>
             <ul class="custom-list">
-                <li><strong>Capital Preservation Target:</strong> Primary focus on maintaining principal while capturing modest equity growth.</li>
-                <li><strong>Cash-Equivalent Buffer:</strong> Monitor short-term yield and cash reserves as equity valuations approach top-quintile ranges.</li>
-                <li><strong>Target Annualized Return Benchmark:</strong> 6.0% - 8.0% Total Return.</li>
+                <li><strong>Principal Preservation:</strong> Prioritize total return stability while restricting exposure during extended valuation peaks.</li>
+                <li><strong>Yield & Cash Equivalents:</strong> Systematically route rebalanced gains into high-yield cash equivalents or ultra-short paper.</li>
+                <li><strong>Drawdown Mitigation:</strong> Focus on trailing risk limits rather than chasing high-beta tech spikes.</li>
             </ul>
         </div>
 
-        <!-- Section 5: Trend & Relative Momentum -->
+        <!-- Section 5: Trend & Relative Rotation -->
         <div class="section-box">
-            <h2>5. Trend & Relative Momentum Analysis</h2>
-            <p>Evaluation of major broad-market indexes across multi-week lookback windows.</p>
+            <h2>5. Trend & Relative Rotation Analysis</h2>
+            <p>Evaluation of major broad-market benchmarks across medium and long-term momentum windows.</p>
             <table>
                 <thead>
                     <tr>
                         <th>Index / ETF</th>
                         <th>Trend (vs 200-SMA)</th>
                         <th>Relative Rotation</th>
-                        <th>Action Pipeline Signal</th>
+                        <th>Action Signal</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
                         <td><strong>SPY</strong> (S&P 500)</td>
-                        <td>Bullish Above Support</td>
+                        <td>Bullish / Above Support</td>
                         <td>Leading</td>
                         <td>Hold Core Position</td>
                     </tr>
                     <tr>
                         <td><strong>QQQ</strong> (Nasdaq 100)</td>
-                        <td>Strong Bullish Momentum</td>
-                        <td>Leading / High Volatility</td>
-                        <td>Hold Core / Trim Margins</td>
+                        <td>Strong Bullish Trend</td>
+                        <td>Leading (High Beta)</td>
+                        <td>Hold / Monitor Overbought</td>
                     </tr>
                     <tr>
                         <td><strong>DIA</strong> (Dow Jones)</td>
                         <td>Consolidating</td>
-                        <td>Improving / Value Rotation</td>
+                        <td>Improving (Value Sector)</td>
                         <td>Hold Core Position</td>
                     </tr>
                 </tbody>
             </table>
         </div>
 
-        <!-- Section 6: Risk & Volatility Metrics -->
+        <!-- Section 6: Volatility & Risk Metrics -->
         <div class="section-box">
-            <h2>6. Risk & Volatility Metrics</h2>
-            <p>Assesses systemic risk metrics, standard deviation, and index position relative to 52-week band limits.</p>
+            <h2>6. Volatility & Risk Metrics</h2>
+            <p>Monitors standard deviation bands, structural pullbacks, and range extremity warnings.</p>
             <div class="metric-grid">
                 <div class="metric-item">
-                    <div class="metric-label">VIX Volatility Regime</div>
-                    <div class="metric-value">Sub-20 (Normal Market Pacing)</div>
+                    <div class="metric-label">Volatility Regime (VIX)</div>
+                    <div class="metric-value">Low / Moderate Pacing</div>
                 </div>
                 <div class="metric-item">
-                    <div class="metric-label">Range Alert Status</div>
-                    <div class="metric-value" style="color: #cf222e;">Near Upper Range Limits (Red Zone)</div>
+                    <div class="metric-label">52-Week Range Risk</div>
+                    <div class="metric-value" style="color: #cf222e;">Upper Quintile Alert (>80%)</div>
                 </div>
                 <div class="metric-item">
-                    <div class="metric-label">Max Drawdown Risk</div>
-                    <div class="metric-value">Moderate / High Valuation Risk</div>
+                    <div class="metric-label">Downside Risk Exposure</div>
+                    <div class="metric-value">Moderate Expansion Risk</div>
                 </div>
             </div>
         </div>
@@ -358,11 +359,11 @@ def generate_html(data, prev_snapshot, update_time_str):
         <!-- Section 7: Action Pipeline & Notes -->
         <div class="section-box">
             <h2>7. Action Pipeline & Decision Triggers</h2>
-            <p>Automated decision logic and screening rules based on weekly technical indicators and macro valuation metrics.</p>
+            <p>Standardized rules and execution checkpoints driven by automated Python state tracking.</p>
             <ul class="custom-list">
-                <li><strong>Rebalance Trigger:</strong> If an index reaches >90% of its 52-week high range alongside elevated CAPE levels, flag for systematic trimming into cash-equivalents.</li>
-                <li><strong>Cash Allocation Note:</strong> Utilize high-yield cash-equivalents/treasuries for defensive yield during extended bull runs.</li>
-                <li><strong>Execution Pipeline:</strong> Run weekly on-demand via GitHub Actions to track 52-week delta shifts and snapshot snapshots.</li>
+                <li><strong>Rebalance Trigger:</strong> When index status remains tagged in the RED zone (≥80% of 52-week range), flag excess gains for cash sweep.</li>
+                <li><strong>Automated Snapshots:</strong> State differential tracked automatically in GitHub via <code>last_run_snapshot.json</code>.</li>
+                <li><strong>Weekly Pipeline:</strong> Run manually or on scheduled triggers to review shifting range metrics.</li>
             </ul>
         </div>
 
@@ -393,7 +394,7 @@ def main():
     prev_snapshot = load_previous_snapshot()
     generate_html(market_data, prev_snapshot, update_time_str)
     save_current_snapshot(market_data)
-    print("Report generated successfully with all 7 complete analytical sections!")
+    print("Report generated successfully with all 7 analytical sections restored!")
 
 if __name__ == "__main__":
     main()
