@@ -1,7 +1,11 @@
-name: Generate Market Report
+name: Market Report
 
 on:
   workflow_dispatch: # Allows manual trigger from GitHub UI
+
+# Explicitly grant write access to commit files back to the repo
+permissions:
+  contents: write
 
 jobs:
   generate-report:
@@ -18,7 +22,6 @@ jobs:
 
       - name: Run Report Generator
         env:
-          # Sets system environment timezone for Python's datetime library
           TZ: "America/Denver"
         run: python report.py
 
