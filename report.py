@@ -32,18 +32,41 @@ def calculate_atr(df, period=14):
     atr = df['TR'].rolling(window=period).mean()
     return atr.iloc[-1] if not atr.empty else 0.0
 
-def get_range_color_and_status(current_price, low_52, high_52):
+def evaluate_combined_status(current_price, low_52, high_52, market_cycle_phase):
+    """
+    Combines 52-Week Range Position AND Market Cycle Phase to evaluate overall color status.
+    """
     if high_52 == low_52:
         pct = 0.0
     else:
         pct = (current_price - low_52) / (high_52 - low_52) * 100
 
+    # 52-Week Rationale
     if pct >= 80:
-        return "red", f"{pct:.1f}% (High Range)", "#ffebe9", "#cf222e"
+        range_rationale = f"Trading in top 20% of 52-week range ({pct:.1f}%). Upper valuation extension limits headroom."
     elif pct >= 25:
-        return "yellow", f"{pct:.1f}% (Mid Range)", "#fff8c5", "#9a6700"
+        range_rationale = f"Mid-range position ({pct:.1f}%). Balanced technical headroom relative to annual extremes."
     else:
-        return "green", f"{pct:.1f}% (Low Range)", "#dafbe1", "#1a7f37"
+        range_rationale = f"Lower range position ({pct:.1f}%). Price is discounted relative to 52-week peak."
+
+    # Combined Matrix: 52-Wk Range + Market Cycle Phase
+    if pct >= 80 or market_cycle_phase == "Late Cycle / Overextended":
+        combined_color = "red"
+        bg_color = "#ffebe9" # Red
+        text_color = "#cf222e"
+        badge_text = "RED (High Risk / Trim)"
+    elif pct >= 30 or market_cycle_phase == "Late Expansion":
+        combined_color = "yellow"
+        bg_color = "#fff8c5" # Yellow
+        text_color = "#9a6700"
+        badge_text = "YELLOW (Neutral / Caution)"
+    else:
+        combined_color = "green"
+        bg_color = "#dafbe1" # Green
+        text_color = "#1a7f37"
+        badge_text = "GREEN (Accumulate / Value)"
+
+    return pct, range_rationale, combined_color, bg_color, text_color, badge_text
 
 def fetch_ticker_data(symbol):
     ticker = yf.Ticker(symbol)
@@ -70,6 +93,29 @@ def fetch_ticker_data(symbol):
     sma_20_prev = hist['Close'].rolling(window=20).mean().iloc[-2]
     sma_50_prev = hist['Close'].rolling(window=50).mean().iloc[-2]
     sma_200_prev = hist['Close'].rolling(window=200).mean().iloc[-2]
+
+    # ETF Specific Market Cycle Assignment & Rationale
+    etf_cycles = {
+        "SPY": {
+            "phase": "Late Expansion",
+            "rationale": "Broad market supported by resilient mega-cap earnings, but valuation expansion is maturing."
+        },
+        "DIA": {
+            "phase": "Mid-to-Late Expansion",
+            "rationale": "Defensive value/industrial tilt providing stable dividend yields amid shifting macro trends."
+        },
+        "QQQ": {
+            "phase": "Late Cycle / Overextended",
+            "rationale": "High-beta growth tech leading momentum; vulnerable to rate spikes and profit-taking discipline."
+        }
+    }
+
+    cycle_info = etf_cycles.get(symbol, {"phase": "Expansion", "rationale": "Standard economic expansion."})
+
+    # Combined Assessment Calculation
+    range_pct, range_rationale, combined_color, bg_color, text_color, badge_text = evaluate_combined_status(
+        current_price, low_52, high_52, cycle_info["phase"]
+    )
 
     # Crossover Logic
     cross_20_50 = "20-SMA Above 50-SMA (Bullish Trend)" if sma_20 > sma_50 else "20-SMA Below 50-SMA (Short-term Weakness)"
@@ -101,24 +147,13 @@ def fetch_ticker_data(symbol):
     elif rsi <= 30:
         rsi_status = "Oversold (<30)"
 
-    color, status_text, bg_color, text_color = get_range_color_and_status(current_price, low_52, high_52)
-
-    # Section 2 Rating Logic (Bull / Neutral / Bear)
-    if current_price > sma_50 and rsi < 70 and color != "red":
-        rating = "Bull"
-        rating_bg = "#dafbe1" # Green
-        rating_text = "#1a7f37"
-        comment = "Price trading above key moving averages with balanced momentum and manageable range risk."
-    elif color == "red" or rsi >= 70 or current_price < sma_20:
-        rating = "Neutral" if current_price > sma_200 else "Bear"
-        rating_bg = "#fff8c5" if rating == "Neutral" else "#ffebe9" # Yellow or Red
-        rating_text = "#9a6700" if rating == "Neutral" else "#cf222e"
-        comment = f"Upper 52-week range extension ({status_text}) or short-term pullback signal warrants conservative discipline."
+    # Section 2 ATR Rationale
+    atr_pct = (atr / current_price) * 100
+    atr_rationale = f"14-Day ATR of ${atr:.2f} represents ~{atr_pct:.2f}% expected daily price fluctuation. "
+    if atr_pct > 1.2:
+        atr_rationale += "Elevated short-term volatility; widen trailing stop thresholds to prevent unwanted shakeouts."
     else:
-        rating = "Bear"
-        rating_bg = "#ffebe9" # Red
-        rating_text = "#cf222e"
-        comment = "Price below structural support levels with weak momentum parameters."
+        atr_rationale += "Normal volatility environment; structure standard risk parameters."
 
     return {
         "symbol": symbol,
@@ -127,23 +162,24 @@ def fetch_ticker_data(symbol):
         "change_pct": daily_change_pct,
         "high_52": high_52,
         "low_52": low_52,
-        "range_color": color,
-        "range_status": status_text,
+        "range_pct": range_pct,
+        "range_rationale": range_rationale,
+        "cycle_phase": cycle_info["phase"],
+        "cycle_rationale": cycle_info["rationale"],
+        "combined_color": combined_color,
         "bg_color": bg_color,
         "text_color": text_color,
+        "badge_text": badge_text,
         "sma_20": sma_20,
         "sma_50": sma_50,
         "sma_200": sma_200,
         "rsi": rsi,
         "rsi_status": rsi_status,
         "atr": atr,
+        "atr_rationale": atr_rationale,
         "cross_20_50": cross_20_50,
         "cross_50_200": cross_50_200,
-        "action_signal": action_signal,
-        "rating": rating,
-        "rating_bg": rating_bg,
-        "rating_text": rating_text,
-        "comment": comment
+        "action_signal": action_signal
     }
 
 def fetch_vix_data():
@@ -237,45 +273,53 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         change_color = "#1a7f37" if change >= 0 else "#cf222e"
         change_sign = "+" if change >= 0 else ""
 
-        # Section 1: Executive Summary
+        # Section 1: Executive Summary (Full Card Background Colored)
         cards_html += f"""
-        <div class="card">
+        <div class="card" style="background-color: {item['bg_color']}; border: 1px solid #d0d7de;">
             <div class="card-header">
-                <h3>{symbol}</h3>
-                <span class="badge" style="background-color: {item['bg_color']}; color: {item['text_color']};">
-                    {item['range_status']}
+                <h3 style="margin:0; font-size: 22px;">{symbol}</h3>
+                <span class="badge" style="background-color: #ffffff; color: {item['text_color']}; border: 1px solid {item['text_color']}; font-weight: bold;">
+                    {item['badge_text']}
                 </span>
             </div>
             <div class="price-main">${price:.2f}</div>
             <div class="price-change" style="color: {change_color};">
                 {change_sign}${change:.2f} ({change_sign}{item['change_pct']:.2f}%)
             </div>
-            <div class="range-info">
-                <strong>52-Wk Range:</strong> ${item['low_52']:.2f} - ${item['high_52']:.2f}
+            
+            <div class="info-block" style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 8px; margin-top: 8px; font-size: 13px;">
+                <strong>52-Wk Range ({item['range_pct']:.1f}%):</strong> ${item['low_52']:.2f} - ${item['high_52']:.2f}
+                <div style="font-size: 12px; margin-top: 2px; color: #333;">{item['range_rationale']}</div>
             </div>
-            <div class="delta-info">
+
+            <div class="info-block" style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 8px; margin-top: 8px; font-size: 13px;">
+                <strong>Market Cycle:</strong> {item['cycle_phase']}
+                <div style="font-size: 12px; margin-top: 2px; color: #333;">{item['cycle_rationale']}</div>
+            </div>
+
+            <div class="delta-info" style="border-top: 1px solid rgba(0,0,0,0.1); margin-top: 8px; padding-top: 6px; font-size: 12px;">
                 <span>Since Last Run:</span> 
                 <strong style="color: {delta_color};">{delta_str}</strong>
             </div>
         </div>
         """
 
-        # Section 2: Technical Rating (Full Box Colored: Bull / Neutral / Bear)
+        # Section 2: Technical Volatility Profile (ATR Rationale Focus)
         sec2_columns += f"""
-        <div class="column-card" style="background-color: {item['rating_bg']}; border: 1px solid #d0d7de;">
-            <div class="rating-header" style="color: {item['rating_text']}; font-size: 20px; font-weight: bold; border-bottom: 2px solid {item['rating_text']}; padding-bottom: 6px; margin-bottom: 12px;">
-                {symbol}: {item['rating'].upper()}
+        <div class="column-card" style="background-color: #ffffff; border: 1px solid #d0d7de;">
+            <div class="column-title" style="color: #0969da; border-bottom: 2px solid #0969da; font-weight: bold;">
+                {symbol} Volatility Analysis
             </div>
-            <div class="metric-row" style="border-bottom: 1px dashed rgba(0,0,0,0.15);">
-                <span>Volatility (14-ATR):</span> <strong>${item['atr']:.2f}</strong>
+            <div class="metric-row">
+                <span>14-Day ATR Value:</span> <strong>${item['atr']:.2f}</strong>
             </div>
             <div class="comment-box" style="margin-top: 12px; font-size: 13px; color: #24292f; line-height: 1.4;">
-                <strong>Rationale:</strong> {item['comment']}
+                <strong>ATR Rationale:</strong> {item['atr_rationale']}
             </div>
         </div>
         """
 
-        # Section 4: Conservative Allocation
+        # Section 4: Conservative Allocation Roadmap
         s4 = sec4_details[symbol]
         sec4_columns += f"""
         <div class="column-card">
@@ -289,7 +333,7 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         </div>
         """
 
-        # Section 5: Moving Averages, RSI-14 & Crossovers
+        # Section 5: Moving Averages, RSI-14 & Crossover Signals
         sec5_columns += f"""
         <div class="column-card">
             <div class="column-title">{symbol} Technical Indicators</div>
@@ -305,7 +349,7 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         </div>
         """
 
-        # Section 6: ETF Downside Risk
+        # Section 6: ETF Downside Risk Profiles
         s6 = sec6_details[symbol]
         sec6_columns += f"""
         <div class="column-card">
@@ -354,11 +398,11 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
         }}
 
         .card, .column-card {{
-            background: #ffffff;
-            border: 1px solid #d0d7de;
             border-radius: 6px;
             padding: 16px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            background: #ffffff;
+            border: 1px solid #d0d7de;
         }}
 
         .column-title {{
@@ -376,11 +420,8 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
             align-items: center;
             margin-bottom: 12px;
         }}
-        .card-header h3 {{ margin: 0; font-size: 20px; }}
         .price-main {{ font-size: 28px; font-weight: bold; margin-bottom: 4px; }}
-        .price-change {{ font-size: 14px; font-weight: 600; margin-bottom: 12px; }}
-        .range-info {{ font-size: 13px; color: #24292f; margin-bottom: 8px; }}
-        .delta-info {{ font-size: 12px; color: #57606a; border-top: 1px solid #f0f0f0; padding-top: 8px; }}
+        .price-change {{ font-size: 14px; font-weight: 600; margin-bottom: 8px; }}
         
         .badge, .signal-badge {{
             font-size: 11px;
@@ -446,21 +487,21 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
             <div class="timestamp">Last Updated: {update_time_str} Mountain Time</div>
         </div>
 
-        <!-- Section 1: Executive Summary -->
-        <h2>1. Executive Summary & 52-Week Ranges</h2>
+        <!-- Section 1: Executive Summary & Combined Status Matrix -->
+        <h2>1. Executive Summary & Combined Status Matrix</h2>
         <div class="three-column-grid">
             {cards_html}
         </div>
 
-        <!-- Section 2: Technical Ratings (Full Box Colored: Bull / Neutral / Bear) -->
-        <h2>2. Technical Ratings & Rationale</h2>
+        <!-- Section 2: Technical Volatility Profile (14-ATR Rationale) -->
+        <h2>2. Volatility Analysis (14-ATR Rationale)</h2>
         <div class="three-column-grid">
             {sec2_columns}
         </div>
 
-        <!-- Section 3: Macro & Valuation Context (Colored Boxes with Rationale) -->
+        <!-- Section 3: Macro & Valuation Context (10 Core Indicators) -->
         <div class="section-box">
-            <h2>3. Macro & Valuation Context (11 Core Indicators)</h2>
+            <h2>3. Macro & Valuation Context (10 Core Indicators)</h2>
             <div class="macro-grid">
                 
                 <!-- Red / High Risk Indicators -->
@@ -513,21 +554,15 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
                     <div class="macro-comment">Neutral impact on multinational corporate earnings performance.</div>
                 </div>
 
-                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
-                    <div class="macro-label">9. Market Cycle Phase</div>
-                    <div class="macro-value">Late Expansion</div>
-                    <div class="macro-comment">High earnings expectations require strict execution and profit discipline.</div>
-                </div>
-
                 <!-- Green / Low Risk Indicators -->
                 <div class="macro-item" style="background-color: #dafbe1; color: #1a7f37;">
-                    <div class="macro-label">10. High Yield Spreads</div>
+                    <div class="macro-label">9. High Yield Spreads</div>
                     <div class="macro-value">Tight (Low Stress)</div>
                     <div class="macro-comment">Credit markets signal minimal immediate default risk or liquidity freeze.</div>
                 </div>
 
                 <div class="macro-item" style="background-color: #dafbe1; color: #1a7f37;">
-                    <div class="macro-label">11. Real GDP Growth</div>
+                    <div class="macro-label">10. Real GDP Growth</div>
                     <div class="macro-value">Positive Expansion</div>
                     <div class="macro-comment">Economic activity continues to support underlying corporate earnings.</div>
                 </div>
@@ -543,7 +578,7 @@ def generate_html(data, vix_val, vix_change, prev_snapshot, update_time_str):
             </div>
         </div>
 
-        <!-- Section 5: Moving Averages, RSI-14 & Crossovers -->
+        <!-- Section 5: Moving Averages, RSI-14 & Crossover Signals -->
         <div class="section-box">
             <h2>5. Moving Averages, RSI-14 & Crossover Signals</h2>
             <div class="three-column-grid">
@@ -607,7 +642,7 @@ def main():
     prev_snapshot = load_previous_snapshot()
     generate_html(market_data, vix_val, vix_change, prev_snapshot, update_time_str)
     save_current_snapshot(market_data, vix_val)
-    print("Report generated successfully with updated sections 2, 3, and 5!")
+    print("Report generated successfully with all sections intact and updated!")
 
 if __name__ == "__main__":
     main()
