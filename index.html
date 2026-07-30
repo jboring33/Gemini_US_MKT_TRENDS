@@ -62,6 +62,7 @@
             border: 1px solid #d0d7de;
             border-radius: 6px;
             overflow: hidden;
+            margin-bottom: 32px;
         }
         th, td {
             padding: 12px 16px;
@@ -70,15 +71,26 @@
         }
         th { background-color: #f6f8fa; font-size: 12px; text-transform: uppercase; color: #57606a; }
         tr:last-child td { border-bottom: none; }
+
+        .section-box {
+            background: #ffffff;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .section-box h2 { margin-top: 0; font-size: 18px; border-bottom: 1px solid #eaecef; padding-bottom: 8px; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>Market Dashboard (SPY / DIA / QQQ)</h1>
-            <div class="timestamp">Last Updated: 2026-07-30 12:09:10 PM MDT Mountain Time</div>
+            <div class="timestamp">Last Updated: 2026-07-30 12:18:10 PM MDT Mountain Time</div>
         </div>
 
+        <!-- Section 1: Top Summary Cards -->
         <div class="grid">
             
         <div class="card">
@@ -88,13 +100,13 @@
                     87.5% (High Range)
                 </span>
             </div>
-            <div class="price-main">$740.14</div>
+            <div class="price-main">$740.17</div>
             <div class="price-change" style="color: #1a7f37;">
-                +$10.68 (+1.46%)
+                +$10.71 (+1.47%)
             </div>
             <div class="delta-info">
                 <span>Since Last Run:</span> 
-                <strong style="color: #1a7f37;">+$0.26</strong>
+                <strong style="color: #1a7f37;">+$0.03</strong>
             </div>
         </div>
         
@@ -102,16 +114,16 @@
             <div class="card-header">
                 <h3>DIA</h3>
                 <span class="badge" style="background-color: #ffebe9; color: #cf222e;">
-                    89.0% (High Range)
+                    89.1% (High Range)
                 </span>
             </div>
-            <div class="price-main">$520.74</div>
+            <div class="price-main">$520.86</div>
             <div class="price-change" style="color: #1a7f37;">
-                +$5.33 (+1.03%)
+                +$5.45 (+1.06%)
             </div>
             <div class="delta-info">
                 <span>Since Last Run:</span> 
-                <strong style="color: #1a7f37;">+$0.08</strong>
+                <strong style="color: #1a7f37;">+$0.12</strong>
             </div>
         </div>
         
@@ -119,21 +131,22 @@
             <div class="card-header">
                 <h3>QQQ</h3>
                 <span class="badge" style="background-color: #fff8c5; color: #9a6700;">
-                    67.1% (Mid Range)
+                    67.0% (Mid Range)
                 </span>
             </div>
-            <div class="price-main">$682.49</div>
+            <div class="price-main">$682.19</div>
             <div class="price-change" style="color: #1a7f37;">
-                +$20.76 (+3.14%)
+                +$20.46 (+3.09%)
             </div>
             <div class="delta-info">
                 <span>Since Last Run:</span> 
-                <strong style="color: #1a7f37;">+$0.29</strong>
+                <strong style="color: #cf222e;">$-0.30</strong>
             </div>
         </div>
         
         </div>
 
+        <!-- Section 2: Technical Breakdown Table -->
         <h2>Technical Details & 52-Week Ranges</h2>
         <table>
             <thead>
@@ -149,8 +162,8 @@
                 
         <tr>
             <td><strong>SPY</strong></td>
-            <td>$740.14</td>
-            <td style="color: #1a7f37;">+$10.68 (+1.46%)</td>
+            <td>$740.17</td>
+            <td style="color: #1a7f37;">+$10.71 (+1.47%)</td>
             <td>$612.50 - $758.45</td>
             <td>
                 <span class="badge" style="background-color: #ffebe9; color: #cf222e;">
@@ -161,8 +174,8 @@
         
         <tr>
             <td><strong>DIA</strong></td>
-            <td>$520.74</td>
-            <td style="color: #1a7f37;">+$5.33 (+1.03%)</td>
+            <td>$520.86</td>
+            <td style="color: #1a7f37;">+$5.45 (+1.06%)</td>
             <td>$426.96 - $532.39</td>
             <td>
                 <span class="badge" style="background-color: #ffebe9; color: #cf222e;">
@@ -173,8 +186,8 @@
         
         <tr>
             <td><strong>QQQ</strong></td>
-            <td>$682.49</td>
-            <td style="color: #1a7f37;">+$20.76 (+3.14%)</td>
+            <td>$682.19</td>
+            <td style="color: #1a7f37;">+$20.46 (+3.09%)</td>
             <td>$549.04 - $747.83</td>
             <td>
                 <span class="badge" style="background-color: #fff8c5; color: #9a6700;">
@@ -185,6 +198,37 @@
         
             </tbody>
         </table>
+
+        <!-- Section 3: Macro & Valuation Context -->
+        <div class="section-box">
+            <h2>3. Macro & Valuation Context</h2>
+            <p>Content for broader valuation metrics, market cycles, or economic indicators goes here.</p>
+        </div>
+
+        <!-- Section 4: Retiree Allocation Suitability -->
+        <div class="section-box">
+            <h2>4. Retiree Allocation Suitability</h2>
+            <p>Content tracking conservative risk profiles, capital preservation bounds, and income generation metrics goes here.</p>
+        </div>
+
+        <!-- Section 5: Trend & Momentum Indicators -->
+        <div class="section-box">
+            <h2>5. Trend & Momentum Indicators</h2>
+            <p>Content analyzing broader market breadth, rotating strength, or technical indicators goes here.</p>
+        </div>
+
+        <!-- Section 6: Risk & Volatility Metrics -->
+        <div class="section-box">
+            <h2>6. Risk & Volatility Metrics</h2>
+            <p>Content monitoring drawdown limits, variance, or protective asset pacing goes here.</p>
+        </div>
+
+        <!-- Section 7: Action Pipeline & Notes -->
+        <div class="section-box">
+            <h2>7. Action Pipeline & Notes</h2>
+            <p>Content tracking systematic rules, alerts, or buy/hold/sell triggers goes here.</p>
+        </div>
+
     </div>
 </body>
 </html>
