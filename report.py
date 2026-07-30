@@ -93,18 +93,18 @@ def generate_html(data, prev_snapshot, update_time_str):
         
         # Delta calculation from last run
         prev_price = prev_snapshot.get(symbol)
-        if prev_price:
+        if prev_price is not None:
             delta = price - prev_price
-            delta_str = f"{'+' if delta >= 0 else ''}{delta:.2f}"
+            delta_str = f"{'+' if delta >= 0 else ''}${delta:.2f}"
             delta_color = "#1a7f37" if delta >= 0 else "#cf222e"
         else:
-            delta_str = "N/A"
+            delta_str = "First Run (N/A)"
             delta_color = "#57606a"
 
         change_color = "#1a7f37" if change >= 0 else "#cf222e"
         change_sign = "+" if change >= 0 else ""
 
-        # Summary Card Construction
+        # Summary Cards (Top Section)
         cards_html += f"""
         <div class="card">
             <div class="card-header">
@@ -124,7 +124,7 @@ def generate_html(data, prev_snapshot, update_time_str):
         </div>
         """
 
-        # Detailed Table Rows
+        # Detailed Breakdown Table (Bottom Section)
         table_rows += f"""
         <tr>
             <td><strong>{symbol}</strong></td>
