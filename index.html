@@ -20,9 +20,12 @@
             margin-bottom: 24px;
             border-bottom: 1px solid #d0d7de;
             padding-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
         }
-        .header h1 { margin: 0 0 8px 0; font-size: 24px; }
-        .header .timestamp { color: #57606a; font-size: 14px; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .header .timestamp-box { color: #57606a; font-size: 13px; text-align: right; line-height: 1.4; }
         
         .three-column-grid {
             display: grid;
@@ -33,6 +36,8 @@
 
         @media (max-width: 768px) {
             .three-column-grid { grid-template-columns: 1fr; }
+            .header { flex-direction: column; align-items: flex-start; gap: 8px; }
+            .header .timestamp-box { text-align: left; }
         }
 
         .card, .column-card {
@@ -121,8 +126,13 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Market Dashboard (SPY / DIA / QQQ)</h1>
-            <div class="timestamp">Last Updated: 2026-07-30 04:39:59 PM MDT Mountain Time</div>
+            <div>
+                <h1>Market Dashboard (SPY / DIA / QQQ)</h1>
+            </div>
+            <div class="timestamp-box">
+                <div><strong>Run Date/Time:</strong> 2026-07-30 04:48:22 PM MDT</div>
+                <div><strong>Last-Run Date/Time:</strong> First Run (N/A)</div>
+            </div>
         </div>
 
         <!-- Summary -->
@@ -156,8 +166,8 @@
                 <div style="font-size: 12px; margin-top: 2px; color: #cf222e;">Top quintile historically; suggests limited long-term valuation expansion.</div>
             </div>
             
-            <div class="delta-info" style="border-top: 1px solid rgba(0,0,0,0.1); margin-top: 8px; padding-top: 6px; font-size: 12px;">
-                <span>Since Last Run:</span> 
+            <div class="delta-info" style="border-top: 1px solid rgba(0,0,0,0.1); margin-top: 8px; padding-top: 6px; font-size: 12px; display: flex; justify-space-between: space-between;">
+                <span>Delta Since Last Run:</span> 
                 <strong style="color: #1a7f37;">+$0.00</strong>
             </div>
         </div>
@@ -184,8 +194,8 @@
                 <div style="font-size: 12px; margin-top: 2px; color: #333;">Defensive value/industrial tilt providing stable dividend yields amid shifting macro trends.</div>
             </div>
             
-            <div class="delta-info" style="border-top: 1px solid rgba(0,0,0,0.1); margin-top: 8px; padding-top: 6px; font-size: 12px;">
-                <span>Since Last Run:</span> 
+            <div class="delta-info" style="border-top: 1px solid rgba(0,0,0,0.1); margin-top: 8px; padding-top: 6px; font-size: 12px; display: flex; justify-space-between: space-between;">
+                <span>Delta Since Last Run:</span> 
                 <strong style="color: #1a7f37;">+$0.00</strong>
             </div>
         </div>
@@ -212,15 +222,15 @@
                 <div style="font-size: 12px; margin-top: 2px; color: #333;">High-beta growth tech leading momentum; vulnerable to rate spikes and profit-taking discipline.</div>
             </div>
             
-            <div class="delta-info" style="border-top: 1px solid rgba(0,0,0,0.1); margin-top: 8px; padding-top: 6px; font-size: 12px;">
-                <span>Since Last Run:</span> 
+            <div class="delta-info" style="border-top: 1px solid rgba(0,0,0,0.1); margin-top: 8px; padding-top: 6px; font-size: 12px; display: flex; justify-space-between: space-between;">
+                <span>Delta Since Last Run:</span> 
                 <strong style="color: #1a7f37;">+$0.00</strong>
             </div>
         </div>
         
         </div>
 
-        <!-- Unified Volatility -->
+        <!-- Volatility -->
         <div class="section-box">
             <h2>Volatility</h2>
             <div class="vix-banner">
@@ -361,15 +371,12 @@
         <div class="section-box">
             <h2>Macro Indicators</h2>
             <div class="macro-grid">
-                
-                <!-- Red / High Risk Indicators -->
                 <div class="macro-item" style="background-color: #ffebe9; color: #cf222e;">
                     <div class="macro-label">1. Fed Balance Sheet</div>
                     <div class="macro-value">QT Ongoing</div>
                     <div class="macro-comment">Continued balance sheet runoff drains net systemic liquidity over time.</div>
                 </div>
 
-                <!-- Yellow / Neutral Indicators -->
                 <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
                     <div class="macro-label">2. Unemployment Rate</div>
                     <div class="macro-value">Stable (~4.1%)</div>
@@ -406,7 +413,6 @@
                     <div class="macro-comment">Neutral impact on multinational corporate earnings performance.</div>
                 </div>
 
-                <!-- Green / Low Risk Indicators -->
                 <div class="macro-item" style="background-color: #dafbe1; color: #1a7f37;">
                     <div class="macro-label">8. High Yield Spreads</div>
                     <div class="macro-value">Tight (Low Stress)</div>
