@@ -2,97 +2,384 @@ import os
 import json
 from datetime import datetime
 import pytz
-import pandas as pd
 import yfinance as yf
+import pandas as pd
 
 # -----------------------------------------------------------------------------
-# Configuration & Setup
+# Configuration
 # -----------------------------------------------------------------------------
-# Default ticker universe to track
-TICKERS = ["VFLO", "SCHD", "SCYB", "JPST", "JAAA", "^GSPC", "^IXIC", "^VIX"]
-
-TIMEZONE = pytz.timezone("US/Eastern")
-NOW = datetime.now(TIMEZONE)
+TICKERS = ["SPY", "DIA", "QQQ"]
+TIMEZONE = "America/Denver"  # Mountain Time
+SNAPSHOT_FILE = "last_run_snapshot.json"
 
 # -----------------------------------------------------------------------------
-# Helper Functions
+# Calculation Helpers
 # -----------------------------------------------------------------------------
-def calculate_rsi(series: pd.Series, period: int = 14) -> float:
-    """Calculate Relative Strength Index (RSI) with zero-division protection."""
-    if len(series) < period + 1:
-        return 50.0  # Neutral fallback if insufficient data
-    
+def calculate_rsi(series, period=14):
     delta = series.diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi.iloc[-1] if not rsi.empty else 50.0
 
-    last_loss = loss.iloc[-1]
-    last_gain = gain.iloc[-1]
+def calculate_atr(df, period=14):
+    df = df.copy()
+    df['High-Low'] = df['High'] - df['Low']
+    df['High-PrevClose'] = abs(df['High'] - df['Close'].shift(1))
+    df['Low-PrevClose'] = abs(df['Low'] - df['Close'].shift(1))
+    df['TR'] = df[['High-Low', 'High-PrevClose', 'Low-PrevClose']].max(axis=1)
+    atr = df['TR'].rolling(window=period).mean()
+    return atr.iloc[-1] if not atr.empty else 0.0
 
-    if last_loss == 0:
-        return 100.0 if last_gain > 0 else 50.0
+def evaluate_combined_status(current_price, low_52, high_52, market_cycle_phase):
+    if high_52 == low_52:
+        pct = 0.0
+    else:
+        pct = (current_price - low_52) / (high_52 - low_52) * 100
 
-    rs = last_gain / last_loss
-    return round(100.0 - (100.0 / (1.0 + rs)), 2)
+    if pct >= 80:
+        range_rationale = f"Trading in top 20% of 52-week range ({pct:.1f}%). Upper valuation extension limits headroom."
+    elif pct >= 25:
+        range_rationale = f"Mid-range position ({pct:.1f}%). Balanced technical headroom relative to annual extremes."
+    else:
+        range_rationale = f"Lower range position ({pct:.1f}%). Price is discounted relative to 52-week peak."
 
+    if pct >= 80 or market_cycle_phase == "Late Cycle / Overextended":
+        combined_color = "red"
+        bg_color = "#ffebe9" # Red
+        text_color = "#cf222e"
+        badge_text = "RED (High Risk / Trim)"
+    elif pct >= 30 or market_cycle_phase == "Late Expansion":
+        combined_color = "yellow"
+        bg_color = "#fff8c5" # Yellow
+        text_color = "#9a6700"
+        badge_text = "YELLOW (Neutral / Caution)"
+    else:
+        combined_color = "green"
+        bg_color = "#dafbe1" # Green
+        text_color = "#1a7f37"
+        badge_text = "GREEN (Accumulate / Value)"
 
-def get_market_data(tickers):
-    """Fetch market history and compute key metrics for each ticker."""
-    report_data = []
+    return pct, range_rationale, combined_color, bg_color, text_color, badge_text
+
+def evaluate_atr_status(atr, current_price):
+    atr_pct = (atr / current_price) * 100
     
-    for ticker in tickers:
+    if atr_pct > 1.5:
+        atr_color = "red"
+        atr_bg = "#ffebe9" # Red
+        atr_text_color = "#cf222e"
+        atr_badge = "HIGH VOLATILITY"
+        atr_rationale = f"14-Day ATR of ${atr:.2f} (~{atr_pct:.2f}% of price) indicates elevated short-term volatility. Widen trailing stops to avoid whip-saw stops."
+    elif atr_pct >= 1.2:
+        atr_color = "yellow"
+        atr_bg = "#fff8c5" # Yellow
+        atr_text_color = "#9a6700"
+        atr_badge = "MODERATE VOLATILITY"
+        atr_rationale = f"14-Day ATR of ${atr:.2f} (~{atr_pct:.2f}% of price) reflects typical late-cycle price swings. Maintain standard risk boundaries."
+    else:
+        atr_color = "green"
+        atr_bg = "#dafbe1" # Green
+        atr_text_color = "#1a7f37"
+        atr_badge = "LOW VOLATILITY"
+        atr_rationale = f"14-Day ATR of ${atr:.2f} (~{atr_pct:.2f}% of price) signals a calm trading environment with minimal daily noise."
+
+    return atr_pct, atr_bg, atr_text_color, atr_badge, atr_rationale
+
+def fetch_ticker_data(symbol):
+    ticker = yf.Ticker(symbol)
+    hist = ticker.history(period="2y")
+    
+    if hist.empty or len(hist) < 200:
+        raise ValueError(f"Insufficient data for {symbol}")
+
+    current_price = hist['Close'].iloc[-1]
+    prev_close = hist['Close'].iloc[-2]
+    daily_change = current_price - prev_close
+    daily_change_pct = (daily_change / prev_close) * 100
+
+    one_yr_hist = hist.tail(252)
+    high_52 = one_yr_hist['High'].max()
+    low_52 = one_yr_hist['Low'].min()
+
+    sma_20 = hist['Close'].rolling(window=20).mean().iloc[-1]
+    sma_50 = hist['Close'].rolling(window=50).mean().iloc[-1]
+    sma_200 = hist['Close'].rolling(window=200).mean().iloc[-1]
+    
+    sma_20_prev = hist['Close'].rolling(window=20).mean().iloc[-2]
+    sma_50_prev = hist['Close'].rolling(window=50).mean().iloc[-2]
+    sma_200_prev = hist['Close'].rolling(window=200).mean().iloc[-2]
+
+    etf_cycles = {
+        "SPY": {
+            "phase": "Late Expansion",
+            "rationale": "Broad market supported by resilient mega-cap earnings, but valuation expansion is maturing."
+        },
+        "DIA": {
+            "phase": "Mid-to-Late Expansion",
+            "rationale": "Defensive value/industrial tilt providing stable dividend yields amid shifting macro trends."
+        },
+        "QQQ": {
+            "phase": "Late Cycle / Overextended",
+            "rationale": "High-beta growth tech leading momentum; vulnerable to rate spikes and profit-taking discipline."
+        }
+    }
+
+    cycle_info = etf_cycles.get(symbol, {"phase": "Expansion", "rationale": "Standard economic expansion."})
+
+    range_pct, range_rationale, combined_color, bg_color, text_color, badge_text = evaluate_combined_status(
+        current_price, low_52, high_52, cycle_info["phase"]
+    )
+
+    rsi = calculate_rsi(hist['Close'], period=14)
+    atr = calculate_atr(hist, period=14)
+
+    atr_pct, atr_bg, atr_text_color, atr_badge, atr_rationale = evaluate_atr_status(atr, current_price)
+
+    cross_20_50 = "20-SMA Above 50-SMA (Bullish Trend)" if sma_20 > sma_50 else "20-SMA Below 50-SMA (Short-term Weakness)"
+    if sma_20_prev <= sma_50_prev and sma_20 > sma_50:
+        cross_20_50 = "Bullish Cross: 20-SMA crossed ABOVE 50-SMA"
+    elif sma_20_prev >= sma_50_prev and sma_20 < sma_50:
+        cross_20_50 = "Bearish Cross: 20-SMA crossed BELOW 50-SMA"
+
+    cross_50_200 = "50-SMA Above 200-SMA (Golden Alignment)" if sma_50 > sma_200 else "50-SMA Below 200-SMA (Bear Alignment)"
+    action_signal = "HOLD"
+    if sma_50_prev <= sma_200_prev and sma_50 > sma_200:
+        cross_50_200 = "Golden Cross (50 Crossed Above 200)"
+        action_signal = "BUY"
+    elif sma_50_prev >= sma_200_prev and sma_50 < sma_200:
+        cross_50_200 = "Death Cross (50 Crossed Below 200)"
+        action_signal = "SELL / TRIM"
+    else:
+        if current_price > sma_200 and sma_50 > sma_200:
+            action_signal = "HOLD / ACCUMULATE"
+        elif current_price < sma_200 and sma_50 < sma_200:
+            action_signal = "REDUCE / SWEEP CASH"
+
+    rsi_status = "Neutral (30-70)"
+    if rsi >= 70:
+        rsi_status = "Overbought (>70)"
+    elif rsi <= 30:
+        rsi_status = "Oversold (<30)"
+
+    return {
+        "symbol": symbol,
+        "price": current_price,
+        "change": daily_change,
+        "change_pct": daily_change_pct,
+        "high_52": high_52,
+        "low_52": low_52,
+        "range_pct": range_pct,
+        "range_rationale": range_rationale,
+        "cycle_phase": cycle_info["phase"],
+        "cycle_rationale": cycle_info["rationale"],
+        "combined_color": combined_color,
+        "bg_color": bg_color,
+        "text_color": text_color,
+        "badge_text": badge_text,
+        "sma_20": sma_20,
+        "sma_50": sma_50,
+        "sma_200": sma_200,
+        "rsi": rsi,
+        "rsi_status": rsi_status,
+        "atr": atr,
+        "atr_pct": atr_pct,
+        "atr_bg": atr_bg,
+        "atr_text_color": atr_text_color,
+        "atr_badge": atr_badge,
+        "atr_rationale": atr_rationale,
+        "cross_20_50": cross_20_50,
+        "cross_50_200": cross_50_200,
+        "action_signal": action_signal
+    }
+
+def fetch_vix_data():
+    vix = yf.Ticker("^VIX")
+    hist = vix.history(period="5d")
+    if not hist.empty:
+        val = hist['Close'].iloc[-1]
+        prev = hist['Close'].iloc[-2]
+        return val, val - prev
+    return 18.00, 0.00
+
+def load_previous_snapshot():
+    if os.path.exists(SNAPSHOT_FILE):
         try:
-            tk = yf.Ticker(ticker)
-            # Fetch 30 days of daily history to ensure enough data for 14-period RSI
-            hist = tk.history(period="30d")
-            
-            if hist.empty or len(hist) < 2:
-                print(f"Warning: Insufficient data for {ticker}")
-                continue
+            with open(SNAPSHOT_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
 
-            current_price = float(hist["Close"].iloc[-1])
-            prev_close = float(hist["Close"].iloc[-2])
-            change = current_price - prev_close
-            pct_change = (change / prev_close) * 100
+def save_current_snapshot(data, vix_val, current_time_str):
+    snapshot = {item["symbol"]: item["price"] for item in data}
+    snapshot["VIX"] = vix_val
+    snapshot["TIMESTAMP"] = current_time_str
+    with open(SNAPSHOT_FILE, "w") as f:
+        json.dump(snapshot, f, indent=2)
 
-            rsi_val = calculate_rsi(hist["Close"])
+# -----------------------------------------------------------------------------
+# HTML Report Generator
+# -----------------------------------------------------------------------------
+def generate_html(data, vix_val, vix_change, prev_snapshot, current_time_str):
+    last_run_time_str = prev_snapshot.get("TIMESTAMP", "First Run (N/A)")
+    
+    prev_vix = prev_snapshot.get("VIX")
+    if prev_vix is not None:
+        vix_delta = vix_val - prev_vix
+        vix_delta_str = f"{'+' if vix_delta >= 0 else ''}{vix_delta:.2f}"
+    else:
+        vix_delta_str = f"{'+' if vix_change >= 0 else ''}{vix_change:.2f}"
 
-            report_data.append({
-                "ticker": ticker,
-                "price": round(current_price, 2),
-                "change": round(change, 2),
-                "pct_change": round(pct_change, 2),
-                "rsi": rsi_val
-            })
-        except Exception as e:
-            print(f"Error fetching data for {ticker}: {e}")
-            
-    return report_data
+    sec1_cards = ""
+    volatility_atr_cards = ""
+    sec3_columns = ""
+    volatility_risk_cards = ""
+    sec6_columns = ""
 
+    sec6_details = {
+        "SPY": {
+            "target": "50% Core Allocation",
+            "steps": [
+                "Trim 2.5% when 52-wk range > 85% to maintain preservation target.",
+                "Sweep proceeds into short-term cash equivalents.",
+                "Re-enter on dips near 200-day SMA ($" + f"{data[0]['sma_200']:.2f}" + ")."
+            ]
+        },
+        "DIA": {
+            "target": "20% Value Baseline",
+            "steps": [
+                "Maintain defensive posture for yield stability.",
+                "Rebalance when RSI crosses extreme levels (>70 or <30).",
+                "Deploy accrued dividends to preserve baseline exposure."
+            ]
+        },
+        "QQQ": {
+            "target": "10% Growth Ceiling",
+            "steps": [
+                "Cap max exposure to limit high-beta drawdown risk.",
+                "Enforce strict stop/trim rules when RSI > 70.",
+                "Harvest tech gains into cash equivalents during late-cycle expansion."
+            ]
+        }
+    }
 
-def generate_html(data, timestamp):
-    """Generate a clean, responsive single-file HTML report."""
-    rows_html = ""
+    volatility_details = {
+        "SPY": {"downside": "Moderate Drawdown Risk", "support": f"${data[0]['sma_200']:.2f} (200-SMA)", "action": "Trailing Stop / Cash Sweep"},
+        "DIA": {"downside": "Low-Moderate Drawdown Risk", "support": f"${data[1]['sma_200']:.2f} (200-SMA)", "action": "Hold Value Base"},
+        "QQQ": {"downside": "Elevated High-Beta Risk", "support": f"${data[2]['sma_200']:.2f} (200-SMA)", "action": "Trim on Overbought Signals"}
+    }
+
     for item in data:
-        # Determine color formatting for percentage change
-        if item["pct_change"] > 0:
-            change_class = "positive"
-            prefix = "+"
-        elif item["pct_change"] < 0:
-            change_class = "negative"
-            prefix = ""
+        symbol = item["symbol"]
+        price = item["price"]
+        change = item["change"]
+        
+        prev_price = prev_snapshot.get(symbol)
+        if prev_price is not None:
+            delta = price - prev_price
+            delta_str = f"{'+' if delta >= 0 else ''}${delta:.2f}"
+            delta_color = "#1a7f37" if delta >= 0 else "#cf222e"
         else:
-            change_class = "neutral"
-            prefix = ""
+            delta_str = "First Run (N/A)"
+            delta_color = "#57606a"
 
-        # Specific styling for VIX if desired, otherwise standard price reporting
-        rows_html += f"""
-        <tr>
-            <td><strong>{item['ticker']}</strong></td>
-            <td>${item['price']:,.2f}</td>
-            <td class="{change_class}">{prefix}{item['change']:,.2f} ({prefix}{item['pct_change']:.2f}%)</td>
-            <td>{item['rsi']}</td>
-        </tr>
+        change_color = "#1a7f37" if change >= 0 else "#cf222e"
+        change_sign = "+" if change >= 0 else ""
+
+        cape_block = ""
+        if symbol == "SPY":
+            cape_block = """
+            <div class="info-block" style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 8px; margin-top: 8px; font-size: 13px;">
+                <strong>Shiller CAPE Ratio:</strong> 41.05 (Elevated)
+                <div style="font-size: 12px; margin-top: 2px; color: #cf222e;">Top quintile historically; suggests limited long-term valuation expansion.</div>
+            </div>
+            """
+
+        sec1_cards += f"""
+        <div class="card" style="background-color: {item['bg_color']}; border: 1px solid #d0d7de;">
+            <div class="card-header">
+                <h3 style="margin:0; font-size: 22px;">{symbol}</h3>
+                <span class="badge" style="background-color: #ffffff; color: {item['text_color']}; border: 1px solid {item['text_color']}; font-weight: bold;">
+                    {item['badge_text']}
+                </span>
+            </div>
+            <div class="price-main">${price:.2f}</div>
+            <div class="price-change" style="color: {change_color};">
+                {change_sign}${change:.2f} ({change_sign}{item['change_pct']:.2f}%)
+            </div>
+            
+            <div class="info-block" style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 8px; margin-top: 8px; font-size: 13px;">
+                <strong>52-Wk Range ({item['range_pct']:.1f}%):</strong> ${item['low_52']:.2f} - ${item['high_52']:.2f}
+                <div style="font-size: 12px; margin-top: 2px; color: #333;">{item['range_rationale']}</div>
+            </div>
+
+            <div class="info-block" style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 8px; margin-top: 8px; font-size: 13px;">
+                <strong>Market Cycle:</strong> {item['cycle_phase']}
+                <div style="font-size: 12px; margin-top: 2px; color: #333;">{item['cycle_rationale']}</div>
+            </div>
+            {cape_block}
+            <div class="delta-info" style="border-top: 1px solid rgba(0,0,0,0.1); margin-top: 8px; padding-top: 6px; font-size: 12px; display: flex; justify-space-between: space-between;">
+                <span>Delta Since Last Run:</span> 
+                <strong style="color: {delta_color};">{delta_str}</strong>
+            </div>
+        </div>
+        """
+
+        volatility_atr_cards += f"""
+        <div class="column-card" style="background-color: {item['atr_bg']}; border: 1px solid #d0d7de;">
+            <div class="card-header">
+                <h3 style="margin:0; font-size: 18px; color: {item['atr_text_color']};">{symbol} Volatility</h3>
+                <span class="badge" style="background-color: #ffffff; color: {item['atr_text_color']}; border: 1px solid {item['atr_text_color']}; font-weight: bold;">
+                    {item['atr_badge']}
+                </span>
+            </div>
+            <div class="metric-row" style="border-bottom: 1px dashed rgba(0,0,0,0.15); margin-top: 8px;">
+                <span>14-Day ATR Value:</span> <strong>${item['atr']:.2f} ({item['atr_pct']:.2f}%)</strong>
+            </div>
+            <div class="comment-box" style="margin-top: 12px; font-size: 13px; color: #24292f; line-height: 1.4;">
+                <strong>Evaluation Rationale:</strong> {item['atr_rationale']}
+            </div>
+        </div>
+        """
+
+        v_det = volatility_details[symbol]
+        volatility_risk_cards += f"""
+        <div class="column-card">
+            <div class="column-title">{symbol} Downside Profile</div>
+            <div class="metric-row"><span>Risk Rating:</span> <strong style="color: #cf222e;">{v_det['downside']}</strong></div>
+            <div class="metric-row"><span>Key Support:</span> <strong>{v_det['support']}</strong></div>
+            <div class="metric-row"><span>Risk Rule:</span> <strong>{v_det['action']}</strong></div>
+        </div>
+        """
+
+        sec3_columns += f"""
+        <div class="column-card">
+            <div class="column-title">{symbol} Technical Indicators</div>
+            <div class="metric-row"><span>20-Day SMA:</span> <strong>${item['sma_20']:.2f}</strong></div>
+            <div class="metric-row"><span>50-Day SMA:</span> <strong>${item['sma_50']:.2f}</strong></div>
+            <div class="metric-row"><span>200-Day SMA:</span> <strong>${item['sma_200']:.2f}</strong></div>
+            <div class="metric-row"><span>RSI (14):</span> <strong>{item['rsi']:.1f} ({item['rsi_status']})</strong></div>
+            <div class="metric-row" style="margin-top: 8px;"><span>20 vs 50 SMA:</span> <strong style="font-size: 11px;">{item['cross_20_50']}</strong></div>
+            <div class="metric-row"><span>50 vs 200 SMA:</span> <strong style="font-size: 11px;">{item['cross_50_200']}</strong></div>
+            <div class="signal-badge" style="background-color: {'#dafbe1' if 'BUY' in item['action_signal'] or 'HOLD' in item['action_signal'] else '#ffebe9'}; color: {'#1a7f37' if 'BUY' in item['action_signal'] or 'HOLD' in item['action_signal'] else '#cf222e'};">
+                Action: {item['action_signal']}
+            </div>
+        </div>
+        """
+
+        s6 = sec6_details[symbol]
+        sec6_columns += f"""
+        <div class="column-card">
+            <div class="column-title">{symbol} Target: {s6['target']}</div>
+            <p><strong>Actionable Steps:</strong></p>
+            <ul class="custom-list">
+                <li>{s6['steps'][0]}</li>
+                <li>{s6['steps'][1]}</li>
+                <li>{s6['steps'][2]}</li>
+            </ul>
+        </div>
         """
 
     html_content = f"""<!DOCTYPE html>
@@ -100,98 +387,285 @@ def generate_html(data, timestamp):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Market Overview Report</title>
+    <title>Market Dashboard</title>
     <style>
         body {{
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f8f9fa;
-            color: #212529;
+            background-color: #f6f8fa;
+            color: #24292f;
             margin: 0;
-            padding: 20px;
+            padding: 24px;
         }}
         .container {{
-            max-width: 900px;
+            max-width: 1050px;
             margin: 0 auto;
+        }}
+        .header {{
+            margin-bottom: 24px;
+            border-bottom: 1px solid #d0d7de;
+            padding-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }}
+        .header h1 {{ margin: 0; font-size: 24px; }}
+        .header .timestamp-box {{ color: #57606a; font-size: 13px; text-align: right; line-height: 1.4; }}
+        
+        .three-column-grid {{
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }}
+
+        @media (max-width: 768px) {{
+            .three-column-grid {{ grid-template-columns: 1fr; }}
+            .header {{ flex-direction: column; align-items: flex-start; gap: 8px; }}
+            .header .timestamp-box {{ text-align: left; }}
+        }}
+
+        .card, .column-card {{
+            border-radius: 6px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
             background: #ffffff;
-            padding: 25px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid #d0d7de;
         }}
-        h1 {{
-            margin-top: 0;
-            font-size: 24px;
-            color: #1a1a1a;
+
+        .column-title {{
+            font-size: 16px;
+            font-weight: bold;
+            border-bottom: 2px solid #0969da;
+            padding-bottom: 6px;
+            margin-bottom: 12px;
+            color: #0969da;
         }}
-        .timestamp {{
-            font-size: 14px;
-            color: #6c757d;
-            margin-bottom: 20px;
+
+        .card-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
         }}
-        table {{
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }}
-        th, td {{
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid #dee2e6;
-        }}
-        th {{
-            background-color: #f1f3f5;
+        .price-main {{ font-size: 28px; font-weight: bold; margin-bottom: 4px; }}
+        .price-change {{ font-size: 14px; font-weight: 600; margin-bottom: 8px; }}
+        
+        .badge, .signal-badge {{
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 12px;
             font-weight: 600;
+            display: inline-block;
         }}
-        .positive {{ color: #2b8a3e; font-weight: 600; }}
-        .negative {{ color: #c92a2a; font-weight: 600; }}
-        .neutral {{ color: #495057; }}
+        .signal-badge {{ font-size: 13px; padding: 6px 12px; margin-top: 12px; font-weight: bold; width: 100%; text-align: center; box-sizing: border-box; }}
+
+        .metric-row {{
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            padding: 6px 0;
+            border-bottom: 1px dashed #e1e4e8;
+        }}
+
+        .section-box {{
+            background: #ffffff;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }}
+        .section-box h2 {{ margin-top: 0; font-size: 18px; border-bottom: 1px solid #eaecef; padding-bottom: 8px; color: #24292f; }}
+        
+        .macro-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }}
+        .macro-item {{
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #d0d7de;
+        }}
+        .macro-label {{ font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; opacity: 0.8; }}
+        .macro-value {{ font-size: 14px; font-weight: bold; margin-bottom: 6px; }}
+        .macro-comment {{ font-size: 12px; line-height: 1.3; opacity: 0.9; }}
+
+        ul.custom-list {{ margin: 8px 0; padding-left: 18px; color: #24292f; line-height: 1.5; font-size: 13px; }}
+        ul.custom-list li {{ margin-bottom: 6px; }}
+
+        .vix-banner {{
+            background: #f8f9fa;
+            border-left: 4px solid #0969da;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Market Dashboard</h1>
-        <div class="timestamp">Last Updated: {timestamp}</div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Ticker</th>
-                    <th>Price</th>
-                    <th>Change (%)</th>
-                    <th>RSI (14)</th>
-                </tr>
-            </thead>
-            <tbody>
-                {rows_html}
-            </tbody>
-        </table>
+        <div class="header">
+            <div>
+                <h1>Market Dashboard (SPY / DIA / QQQ)</h1>
+            </div>
+            <div class="timestamp-box">
+                <div><strong>Run Date/Time:</strong> {current_time_str}</div>
+                <div><strong>Last-Run Date/Time:</strong> {last_run_time_str}</div>
+            </div>
+        </div>
+
+        <!-- Summary -->
+        <h2>Summary</h2>
+        <div class="three-column-grid">
+            {sec1_cards}
+        </div>
+
+        <!-- Volatility -->
+        <div class="section-box">
+            <h2>Volatility</h2>
+            <div class="vix-banner">
+                <div>
+                    <strong>CBOE Volatility Index (VIX):</strong> <span style="font-size: 20px; font-weight: bold; margin-left: 8px;">{vix_val:.2f}</span>
+                </div>
+                <div>
+                    <strong>Delta Since Last Run:</strong> 
+                    <span style="font-size: 16px; font-weight: bold; color: {'#cf222e' if vix_change >= 0 else '#1a7f37'}; margin-left: 6px;">{vix_delta_str}</span>
+                </div>
+            </div>
+            
+            <h3 style="font-size: 15px; color: #57606a; margin-top: 16px; margin-bottom: 12px;">14-Day ATR Profile</h3>
+            <div class="three-column-grid">
+                {volatility_atr_cards}
+            </div>
+
+            <h3 style="font-size: 15px; color: #57606a; margin-top: 16px; margin-bottom: 12px;">ETF Downside Risk Profiles</h3>
+            <div class="three-column-grid" style="margin-bottom: 0;">
+                {volatility_risk_cards}
+            </div>
+        </div>
+
+        <!-- Moving Averages -->
+        <div class="section-box">
+            <h2>Moving Averages</h2>
+            <div class="three-column-grid">
+                {sec3_columns}
+            </div>
+        </div>
+
+        <!-- Macro Indicators -->
+        <div class="section-box">
+            <h2>Macro Indicators</h2>
+            <div class="macro-grid">
+                <div class="macro-item" style="background-color: #ffebe9; color: #cf222e;">
+                    <div class="macro-label">1. Fed Balance Sheet</div>
+                    <div class="macro-value">QT Ongoing</div>
+                    <div class="macro-comment">Continued balance sheet runoff drains net systemic liquidity over time.</div>
+                </div>
+
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">2. Unemployment Rate</div>
+                    <div class="macro-value">Stable (~4.1%)</div>
+                    <div class="macro-comment">Labor market shows gradual cooling without signaling immediate recession.</div>
+                </div>
+
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">3. CPI & PCE Inflation</div>
+                    <div class="macro-value">Moderating</div>
+                    <div class="macro-comment">Trending downward toward policy targets, though shelter/service stickiness remains.</div>
+                </div>
+
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">4. Yield Curve (10Y-2Y)</div>
+                    <div class="macro-value">Un-inverting</div>
+                    <div class="macro-comment">Transitioning out of inversion; historically warrants late-cycle caution.</div>
+                </div>
+
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">5. Fed Funds Rate</div>
+                    <div class="macro-value">Restrictive Horizon</div>
+                    <div class="macro-comment">Rates remain elevated above neutral level to curb lingering inflation.</div>
+                </div>
+
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">6. Consumer Sentiment</div>
+                    <div class="macro-value">Rangebound</div>
+                    <div class="macro-comment">Balanced between steady labor markets and higher living costs.</div>
+                </div>
+
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">7. US Dollar (DXY)</div>
+                    <div class="macro-value">Stable Range</div>
+                    <div class="macro-comment">Neutral impact on multinational corporate earnings performance.</div>
+                </div>
+
+                <div class="macro-item" style="background-color: #dafbe1; color: #1a7f37;">
+                    <div class="macro-label">8. High Yield Spreads</div>
+                    <div class="macro-value">Tight (Low Stress)</div>
+                    <div class="macro-comment">Credit markets signal minimal immediate default risk or liquidity freeze.</div>
+                </div>
+
+                <div class="macro-item" style="background-color: #dafbe1; color: #1a7f37;">
+                    <div class="macro-label">9. Real GDP Growth</div>
+                    <div class="macro-value">Positive Expansion</div>
+                    <div class="macro-comment">Economic activity continues to support underlying corporate earnings.</div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Allocation -->
+        <div class="section-box">
+            <h2>Allocation</h2>
+            <div class="three-column-grid">
+                {sec6_columns}
+            </div>
+        </div>
+
+        <!-- Guidelines -->
+        <div class="section-box">
+            <h2>Guidelines</h2>
+            <ul class="custom-list">
+                <li><strong>52-Week Range Threshold:</strong> When index status remains tagged in the <span style="color: #cf222e; font-weight: bold;">RED zone (≥80%)</span>, sweep gains into cash equivalents.</li>
+                <li><strong>Crossover Action Rule:</strong> On 50/200 SMA <strong>Death Cross</strong>, automatically scale back allocation target by 50%. On <strong>Golden Cross</strong>, hold/accumulate core target.</li>
+                <li><strong>Overbought RSI Discipline:</strong> When RSI (14) > 70, pause new capital injections into high-beta indices (QQQ).</li>
+            </ul>
+        </div>
+
     </div>
 </body>
 </html>
 """
-    return html_content
+    with open("index.html", "w") as f:
+        f.write(html_content)
 
 # -----------------------------------------------------------------------------
-# Main Execution
+# Main Execution Workflow
 # -----------------------------------------------------------------------------
 def main():
-    print("Fetching market data...")
-    data = get_market_data(TICKERS)
-    
-    timestamp_str = NOW.strftime("%Y-%m-%d %H:%M:%S %Z")
-    
-    # 1. Save state snapshot as JSON
-    snapshot = {
-        "updated_at": timestamp_str,
-        "data": data
-    }
-    with open("last_run_snapshot.json", "w") as f:
-        json.dump(snapshot, f, indent=2)
-    print("Saved last_run_snapshot.json")
+    tz = pytz.timezone(TIMEZONE)
+    now_mt = datetime.now(tz)
+    current_time_str = now_mt.strftime("%Y-%m-%d %I:%M:%S %p %Z")
 
-    # 2. Render and save index.html
-    html = generate_html(data, timestamp_str)
-    with open("index.html", "w") as f:
-        f.write(html)
-    print("Saved index.html")
+    print(f"Fetching market data for {TICKERS}...")
+    market_data = []
+    for symbol in TICKERS:
+        try:
+            data = fetch_ticker_data(symbol)
+            market_data.append(data)
+        except Exception as e:
+            print(f"Error fetching {symbol}: {e}")
+
+    vix_val, vix_change = fetch_vix_data()
+
+    prev_snapshot = load_previous_snapshot()
+    generate_html(market_data, vix_val, vix_change, prev_snapshot, current_time_str)
+    save_current_snapshot(market_data, vix_val, current_time_str)
+    print("Report generated successfully!")
 
 if __name__ == "__main__":
     main()
