@@ -2,14 +2,16 @@ name: Market Report Generator
 
 on:
   workflow_dispatch: # Manual trigger via the "Run workflow" button
+  # schedule:
+  #   - cron: '0 21 * * 1-5' # Optional: Auto-run after market close (Mon-Fri)
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+# Sets permissions of the GITHUB_TOKEN to allow repository writes and GitHub Pages deployment
 permissions:
   contents: write
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment
+# Allow only one concurrent deployment to GitHub Pages
 concurrency:
   group: "pages"
   cancel-in-progress: false
@@ -20,11 +22,15 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          # Fetch full history so git rebase and push work reliably
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.11'
+          cache: 'pip' # Speeds up runs by caching yfinance and pandas builds
 
       - name: Install Dependencies
         run: |
@@ -34,16 +40,23 @@ jobs:
       - name: Run Market Report Generator
         run: python report.py
 
-      - name: Commit and Push Updated Data & HTML
+      - name: Commit and Push Updated Snapshot & HTML
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add index.html last_run_snapshot.json
-          git diff-index --quiet HEAD || (git commit -m "Auto-update market report [skip ci]" && git push)
+          
+          # Check if there are changes before committing
+          if ! git diff-index --quiet HEAD --; then
+            git commit -m "Auto-update market report [skip ci]"
+            git pull --rebase origin main
+            git push
+          else
+            echo "No changes detected. Skipping commit."
+          fi
 
-      # Upload the generated site build artifact
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v5
 
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
