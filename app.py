@@ -1,3 +1,11 @@
+import os
+import sys
+
+# -----------------------------------------------------------------------------
+# Path Resolution Fix (Ensures Streamlit Cloud resolves config/ and logic/)
+# -----------------------------------------------------------------------------
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from datetime import datetime
 import pandas as pd
 import pytz
@@ -12,7 +20,9 @@ from logic.metrics import (
     calculate_rsi,
 )
 
-# Page Config
+# -----------------------------------------------------------------------------
+# Page Configuration
+# -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="Market Dashboard (SPY / DIA / QQQ)",
     page_icon="📈",
@@ -24,13 +34,13 @@ TIMEZONE = pytz.timezone("US/Eastern")
 NOW = datetime.now(TIMEZONE)
 
 # -----------------------------------------------------------------------------
-# Data Fetching
+# Data Fetching Engine
 # -----------------------------------------------------------------------------
 
 
 @st.cache_data(ttl=CACHE_TTL)
 def load_market_data():
-  """Fetch 1-year historical data for SPY, DIA, QQQ and VIX."""
+  """Fetch historical daily data for primary tickers and volatility index."""
   tickers_to_fetch = PRIMARY_TICKERS + [VOLATILITY_TICKER]
   raw_data = {}
 
@@ -46,7 +56,7 @@ def load_market_data():
   return raw_data
 
 
-# Load cached data
+# Load cached market data
 market_data = load_market_data()
 
 # -----------------------------------------------------------------------------
@@ -56,7 +66,7 @@ st.title("Market Dashboard (SPY / DIA / QQQ)")
 st.caption(f"Last Updated: {NOW.strftime('%Y-%m-%d %H:%M:%S %Z')}")
 
 # -----------------------------------------------------------------------------
-# Section 1: Summary Cards
+# Section 1: Summary Cards (Price, Change, 52-Week Range)
 # -----------------------------------------------------------------------------
 st.subheader("Summary")
 summary_cols = st.columns(len(PRIMARY_TICKERS))
@@ -70,7 +80,7 @@ for idx, ticker in enumerate(PRIMARY_TICKERS):
       change = curr_price - prev_price
       pct_change = (change / prev_price) * 100
 
-      # 52-Week Range
+      # 52-Week Range Calculation
       low_52 = float(df["Low"].min())
       high_52 = float(df["High"].max())
       range_pct = (
@@ -89,7 +99,7 @@ for idx, ticker in enumerate(PRIMARY_TICKERS):
       )
 
 # -----------------------------------------------------------------------------
-# Section 2: Volatility (VIX Gauge)
+# Section 2: Volatility Gauge (VIX)
 # -----------------------------------------------------------------------------
 st.divider()
 st.subheader("Volatility")
@@ -100,7 +110,7 @@ if VOLATILITY_TICKER in market_data:
   vix_prev = float(vix_df["Close"].iloc[-2])
   vix_change = vix_val - vix_prev
 
-  # Determine Regime
+  # Determine Volatility Regime
   if vix_val < 20:
     regime = "LOW VOLATILITY (<20)"
     color_type = "off"
@@ -112,7 +122,7 @@ if VOLATILITY_TICKER in market_data:
     color_type = "inverse"
 
   st.metric(
-      label=f"CBOE Volatility Index (VIX) - {regime}",
+      label=f"CBOE Volatility Index (VIX) — {regime}",
       value=f"{vix_val:.2f}",
       delta=f"{vix_change:+.2f} since last run",
       delta_color=color_type,
@@ -137,7 +147,7 @@ for idx, ticker in enumerate(PRIMARY_TICKERS):
       )
 
 # -----------------------------------------------------------------------------
-# Section 4: Moving Averages & Technical Indicators
+# Section 4: Moving Averages & Technical Signals
 # -----------------------------------------------------------------------------
 st.divider()
 st.subheader("Moving Averages & Technical Signals")
@@ -152,7 +162,7 @@ for idx, ticker in enumerate(PRIMARY_TICKERS):
 
       st.markdown(f"### {ticker} Technicals")
 
-      # Signal Badge
+      # Action Badge
       if ma_info["badge_style"] == "success":
         st.success(f"Action: **{ma_info['action']}**")
       elif ma_info["badge_style"] == "warning":
@@ -160,12 +170,13 @@ for idx, ticker in enumerate(PRIMARY_TICKERS):
       else:
         st.info(f"Action: **{ma_info['action']}**")
 
-      # Metrics Grid
+      # Technical Metrics Grid
       st.write(f"**20-Day EMA:** ${ma_info['ema_20']:,.2f}")
       st.write(f"**50-Day EMA:** ${ma_info['ema_50']:,.2f}")
       st.write(f"**200-Day EMA:** ${ma_info['ema_200']:,.2f}")
       st.write(f"**RSI (14):** {rsi}")
 
+      # Trend Rules
       st.caption(f"• {ma_info['trend_20_50']}")
       st.caption(f"• {ma_info['trend_50_200']}")
 
@@ -176,7 +187,7 @@ st.divider()
 st.subheader("Macro Indicators")
 macro_items = get_macro_indicators()
 
-# Render in 3 columns
+# Render Macro Cards in a 3-column layout
 m_cols = st.columns(3)
 for idx, item in enumerate(macro_items):
   with m_cols[idx % 3]:
