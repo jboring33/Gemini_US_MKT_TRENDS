@@ -3,125 +3,479 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Market Overview Report</title>
+    <title>Market Dashboard</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f8f9fa;
-            color: #212529;
+            background-color: #f6f8fa;
+            color: #24292f;
             margin: 0;
-            padding: 20px;
+            padding: 24px;
         }
         .container {
-            max-width: 900px;
+            max-width: 1050px;
             margin: 0 auto;
+        }
+        .header {
+            margin-bottom: 24px;
+            border-bottom: 1px solid #d0d7de;
+            padding-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+        .header h1 { margin: 0; font-size: 24px; }
+        .header .timestamp-box { color: #57606a; font-size: 13px; text-align: right; line-height: 1.4; }
+        
+        .three-column-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 768px) {
+            .three-column-grid { grid-template-columns: 1fr; }
+            .header { flex-direction: column; align-items: flex-start; gap: 8px; }
+            .header .timestamp-box { text-align: left; }
+        }
+
+        .card, .column-card {
+            border-radius: 6px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
             background: #ffffff;
-            padding: 25px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid #d0d7de;
         }
-        h1 {
-            margin-top: 0;
-            font-size: 24px;
-            color: #1a1a1a;
+
+        .column-title {
+            font-size: 16px;
+            font-weight: bold;
+            border-bottom: 2px solid #0969da;
+            padding-bottom: 6px;
+            margin-bottom: 12px;
+            color: #0969da;
         }
-        .timestamp {
-            font-size: 14px;
-            color: #6c757d;
-            margin-bottom: 20px;
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-        th, td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid #dee2e6;
-        }
-        th {
-            background-color: #f1f3f5;
+        .price-main { font-size: 28px; font-weight: bold; margin-bottom: 4px; }
+        .price-change { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+        
+        .badge, .signal-badge {
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 12px;
             font-weight: 600;
+            display: inline-block;
         }
-        .positive { color: #2b8a3e; font-weight: 600; }
-        .negative { color: #c92a2a; font-weight: 600; }
-        .neutral { color: #495057; }
+        .signal-badge { font-size: 13px; padding: 6px 12px; margin-top: 12px; font-weight: bold; width: 100%; text-align: center; box-sizing: border-box; }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            padding: 6px 0;
+            border-bottom: 1px dashed #e1e4e8;
+        }
+
+        .section-box {
+            background: #ffffff;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .section-box h2 { margin-top: 0; font-size: 18px; border-bottom: 1px solid #eaecef; padding-bottom: 8px; color: #24292f; }
+        
+        .macro-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+        .macro-item {
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #d0d7de;
+        }
+        .macro-label { font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; opacity: 0.8; }
+        .macro-value { font-size: 14px; font-weight: bold; margin-bottom: 6px; }
+        .macro-comment { font-size: 12px; line-height: 1.3; opacity: 0.9; }
+
+        ul.custom-list { margin: 8px 0; padding-left: 18px; color: #24292f; line-height: 1.5; font-size: 13px; }
+        ul.custom-list li { margin-bottom: 6px; }
+
+        .vix-banner {
+            background: #f8f9fa;
+            border-left: 4px solid #0969da;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Market Dashboard</h1>
-        <div class="timestamp">Last Updated: 2026-08-08 13:13:20 EDT</div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Ticker</th>
-                    <th>Price</th>
-                    <th>Change (%)</th>
-                    <th>RSI (14)</th>
-                </tr>
-            </thead>
-            <tbody>
+        <div class="header">
+            <div>
+                <h1>Market Dashboard (SPY / DIA / QQQ)</h1>
+            </div>
+            <div class="timestamp-box">
+                <div><strong>Run Date/Time:</strong> 2026-08-08 11:25:17 AM MDT</div>
+                <div><strong>Last-Run Date/Time:</strong> First Run (N/A)</div>
+            </div>
+        </div>
+
+        <!-- Summary -->
+        <h2>Summary</h2>
+        <div class="three-column-grid">
+            
+        <div class="card" style="background-color: #ffebe9; border: 1px solid #d0d7de;">
+            <div class="card-header">
+                <h3 style="margin:0; font-size: 22px;">SPY</h3>
+                <span class="badge" style="background-color: #ffffff; color: #cf222e; border: 1px solid #cf222e; font-weight: bold;">
+                    RED (High Risk / Trim)
+                </span>
+            </div>
+            <div class="price-main">$773.26</div>
+            <div class="price-change" style="color: #1a7f37;">
+                +$4.70 (+0.61%)
+            </div>
+            
+            <div class="info-block" style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 8px; margin-top: 8px; font-size: 13px;">
+                <strong>52-Wk Range (97.7%):</strong> $622.22 - $776.85
+                <div style="font-size: 12px; margin-top: 2px; color: #333;">Trading in top 20% of 52-week range (97.7%). Upper valuation extension limits headroom.</div>
+            </div>
+
+            <div class="info-block" style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 8px; margin-top: 8px; font-size: 13px;">
+                <strong>Market Cycle:</strong> Late Expansion
+                <div style="font-size: 12px; margin-top: 2px; color: #333;">Broad market supported by resilient mega-cap earnings, but valuation expansion is maturing.</div>
+            </div>
+            
+            <div class="info-block" style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 8px; margin-top: 8px; font-size: 13px;">
+                <strong>Shiller CAPE Ratio:</strong> 41.05 (Elevated)
+                <div style="font-size: 12px; margin-top: 2px; color: #cf222e;">Top quintile historically; suggests limited long-term valuation expansion.</div>
+            </div>
+            
+            <div class="delta-info" style="border-top: 1px solid rgba(0,0,0,0.1); margin-top: 8px; padding-top: 6px; font-size: 12px; display: flex; justify-space-between: space-between;">
+                <span>Delta Since Last Run:</span> 
+                <strong style="color: #57606a;">First Run (N/A)</strong>
+            </div>
+        </div>
+        
+        <div class="card" style="background-color: #ffebe9; border: 1px solid #d0d7de;">
+            <div class="card-header">
+                <h3 style="margin:0; font-size: 22px;">DIA</h3>
+                <span class="badge" style="background-color: #ffffff; color: #cf222e; border: 1px solid #cf222e; font-weight: bold;">
+                    RED (High Risk / Trim)
+                </span>
+            </div>
+            <div class="price-main">$539.62</div>
+            <div class="price-change" style="color: #1a7f37;">
+                +$1.43 (+0.27%)
+            </div>
+            
+            <div class="info-block" style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 8px; margin-top: 8px; font-size: 13px;">
+                <strong>52-Wk Range (93.8%):</strong> $431.48 - $546.75
+                <div style="font-size: 12px; margin-top: 2px; color: #333;">Trading in top 20% of 52-week range (93.8%). Upper valuation extension limits headroom.</div>
+            </div>
+
+            <div class="info-block" style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 8px; margin-top: 8px; font-size: 13px;">
+                <strong>Market Cycle:</strong> Mid-to-Late Expansion
+                <div style="font-size: 12px; margin-top: 2px; color: #333;">Defensive value/industrial tilt providing stable dividend yields amid shifting macro trends.</div>
+            </div>
+            
+            <div class="delta-info" style="border-top: 1px solid rgba(0,0,0,0.1); margin-top: 8px; padding-top: 6px; font-size: 12px; display: flex; justify-space-between: space-between;">
+                <span>Delta Since Last Run:</span> 
+                <strong style="color: #57606a;">First Run (N/A)</strong>
+            </div>
+        </div>
+        
+        <div class="card" style="background-color: #ffebe9; border: 1px solid #d0d7de;">
+            <div class="card-header">
+                <h3 style="margin:0; font-size: 22px;">QQQ</h3>
+                <span class="badge" style="background-color: #ffffff; color: #cf222e; border: 1px solid #cf222e; font-weight: bold;">
+                    RED (High Risk / Trim)
+                </span>
+            </div>
+            <div class="price-main">$723.03</div>
+            <div class="price-change" style="color: #1a7f37;">
+                +$8.38 (+1.17%)
+            </div>
+            
+            <div class="info-block" style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 8px; margin-top: 8px; font-size: 13px;">
+                <strong>52-Wk Range (87.1%):</strong> $554.99 - $747.83
+                <div style="font-size: 12px; margin-top: 2px; color: #333;">Trading in top 20% of 52-week range (87.1%). Upper valuation extension limits headroom.</div>
+            </div>
+
+            <div class="info-block" style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 8px; margin-top: 8px; font-size: 13px;">
+                <strong>Market Cycle:</strong> Late Cycle / Overextended
+                <div style="font-size: 12px; margin-top: 2px; color: #333;">High-beta growth tech leading momentum; vulnerable to rate spikes and profit-taking discipline.</div>
+            </div>
+            
+            <div class="delta-info" style="border-top: 1px solid rgba(0,0,0,0.1); margin-top: 8px; padding-top: 6px; font-size: 12px; display: flex; justify-space-between: space-between;">
+                <span>Delta Since Last Run:</span> 
+                <strong style="color: #57606a;">First Run (N/A)</strong>
+            </div>
+        </div>
+        
+        </div>
+
+        <!-- Volatility -->
+        <div class="section-box">
+            <h2>Volatility</h2>
+            <div class="vix-banner">
+                <div>
+                    <strong>CBOE Volatility Index (VIX):</strong> <span style="font-size: 20px; font-weight: bold; margin-left: 8px;">14.90</span>
+                </div>
+                <div>
+                    <strong>Delta Since Last Run:</strong> 
+                    <span style="font-size: 16px; font-weight: bold; color: #1a7f37; margin-left: 6px;">-0.25</span>
+                </div>
+            </div>
+            
+            <h3 style="font-size: 15px; color: #57606a; margin-top: 16px; margin-bottom: 12px;">14-Day ATR Profile</h3>
+            <div class="three-column-grid">
                 
-        <tr>
-            <td><strong>VFLO</strong></td>
-            <td>$51.46</td>
-            <td class="positive">+1.15 (+2.29%)</td>
-            <td>78.94</td>
-        </tr>
+        <div class="column-card" style="background-color: #dafbe1; border: 1px solid #d0d7de;">
+            <div class="card-header">
+                <h3 style="margin:0; font-size: 18px; color: #1a7f37;">SPY Volatility</h3>
+                <span class="badge" style="background-color: #ffffff; color: #1a7f37; border: 1px solid #1a7f37; font-weight: bold;">
+                    LOW VOLATILITY
+                </span>
+            </div>
+            <div class="metric-row" style="border-bottom: 1px dashed rgba(0,0,0,0.15); margin-top: 8px;">
+                <span>14-Day ATR Value:</span> <strong>$9.13 (1.18%)</strong>
+            </div>
+            <div class="comment-box" style="margin-top: 12px; font-size: 13px; color: #24292f; line-height: 1.4;">
+                <strong>Evaluation Rationale:</strong> 14-Day ATR of $9.13 (~1.18% of price) signals a calm trading environment with minimal daily noise.
+            </div>
+        </div>
         
-        <tr>
-            <td><strong>SCHD</strong></td>
-            <td>$33.90</td>
-            <td class="positive">+0.20 (+0.59%)</td>
-            <td>71.06</td>
-        </tr>
+        <div class="column-card" style="background-color: #fff8c5; border: 1px solid #d0d7de;">
+            <div class="card-header">
+                <h3 style="margin:0; font-size: 18px; color: #9a6700;">DIA Volatility</h3>
+                <span class="badge" style="background-color: #ffffff; color: #9a6700; border: 1px solid #9a6700; font-weight: bold;">
+                    MODERATE VOLATILITY
+                </span>
+            </div>
+            <div class="metric-row" style="border-bottom: 1px dashed rgba(0,0,0,0.15); margin-top: 8px;">
+                <span>14-Day ATR Value:</span> <strong>$6.60 (1.22%)</strong>
+            </div>
+            <div class="comment-box" style="margin-top: 12px; font-size: 13px; color: #24292f; line-height: 1.4;">
+                <strong>Evaluation Rationale:</strong> 14-Day ATR of $6.60 (~1.22% of price) reflects typical late-cycle price swings. Maintain standard risk boundaries.
+            </div>
+        </div>
         
-        <tr>
-            <td><strong>SCYB</strong></td>
-            <td>$26.04</td>
-            <td class="positive">+0.06 (+0.23%)</td>
-            <td>61.17</td>
-        </tr>
+        <div class="column-card" style="background-color: #ffebe9; border: 1px solid #d0d7de;">
+            <div class="card-header">
+                <h3 style="margin:0; font-size: 18px; color: #cf222e;">QQQ Volatility</h3>
+                <span class="badge" style="background-color: #ffffff; color: #cf222e; border: 1px solid #cf222e; font-weight: bold;">
+                    HIGH VOLATILITY
+                </span>
+            </div>
+            <div class="metric-row" style="border-bottom: 1px dashed rgba(0,0,0,0.15); margin-top: 8px;">
+                <span>14-Day ATR Value:</span> <strong>$14.94 (2.07%)</strong>
+            </div>
+            <div class="comment-box" style="margin-top: 12px; font-size: 13px; color: #24292f; line-height: 1.4;">
+                <strong>Evaluation Rationale:</strong> 14-Day ATR of $14.94 (~2.07% of price) indicates elevated short-term volatility. Widen trailing stops to avoid whip-saw stops.
+            </div>
+        </div>
         
-        <tr>
-            <td><strong>JPST</strong></td>
-            <td>$50.44</td>
-            <td class="positive">+0.04 (+0.08%)</td>
-            <td>80.0</td>
-        </tr>
+            </div>
+
+            <h3 style="font-size: 15px; color: #57606a; margin-top: 16px; margin-bottom: 12px;">ETF Downside Risk Profiles</h3>
+            <div class="three-column-grid" style="margin-bottom: 0;">
+                
+        <div class="column-card">
+            <div class="column-title">SPY Downside Profile</div>
+            <div class="metric-row"><span>Risk Rating:</span> <strong style="color: #cf222e;">Moderate Drawdown Risk</strong></div>
+            <div class="metric-row"><span>Key Support:</span> <strong>$700.13 (200-SMA)</strong></div>
+            <div class="metric-row"><span>Risk Rule:</span> <strong>Trailing Stop / Cash Sweep</strong></div>
+        </div>
         
-        <tr>
-            <td><strong>JAAA</strong></td>
-            <td>$50.56</td>
-            <td class="positive">+0.03 (+0.06%)</td>
-            <td>94.72</td>
-        </tr>
+        <div class="column-card">
+            <div class="column-title">DIA Downside Profile</div>
+            <div class="metric-row"><span>Risk Rating:</span> <strong style="color: #cf222e;">Low-Moderate Drawdown Risk</strong></div>
+            <div class="metric-row"><span>Key Support:</span> <strong>$489.86 (200-SMA)</strong></div>
+            <div class="metric-row"><span>Risk Rule:</span> <strong>Hold Value Base</strong></div>
+        </div>
         
-        <tr>
-            <td><strong>^GSPC</strong></td>
-            <td>$7,757.64</td>
-            <td class="positive">+47.68 (+0.62%)</td>
-            <td>69.78</td>
-        </tr>
+        <div class="column-card">
+            <div class="column-title">QQQ Downside Profile</div>
+            <div class="metric-row"><span>Risk Rating:</span> <strong style="color: #cf222e;">Elevated High-Beta Risk</strong></div>
+            <div class="metric-row"><span>Key Support:</span> <strong>$646.70 (200-SMA)</strong></div>
+            <div class="metric-row"><span>Risk Rule:</span> <strong>Trim on Overbought Signals</strong></div>
+        </div>
         
-        <tr>
-            <td><strong>^IXIC</strong></td>
-            <td>$26,690.62</td>
-            <td class="positive">+342.27 (+1.30%)</td>
-            <td>63.3</td>
-        </tr>
+            </div>
+        </div>
+
+        <!-- Moving Averages -->
+        <div class="section-box">
+            <h2>Moving Averages</h2>
+            <div class="three-column-grid">
+                
+        <div class="column-card">
+            <div class="column-title">SPY Technical Indicators</div>
+            <div class="metric-row"><span>20-Day SMA:</span> <strong>$750.17</strong></div>
+            <div class="metric-row"><span>50-Day SMA:</span> <strong>$746.61</strong></div>
+            <div class="metric-row"><span>200-Day SMA:</span> <strong>$700.13</strong></div>
+            <div class="metric-row"><span>RSI (14):</span> <strong>69.6 (Neutral (30-70))</strong></div>
+            <div class="metric-row" style="margin-top: 8px;"><span>20 vs 50 SMA:</span> <strong style="font-size: 11px;">20-SMA Above 50-SMA (Bullish Trend)</strong></div>
+            <div class="metric-row"><span>50 vs 200 SMA:</span> <strong style="font-size: 11px;">50-SMA Above 200-SMA (Golden Alignment)</strong></div>
+            <div class="signal-badge" style="background-color: #dafbe1; color: #1a7f37;">
+                Action: HOLD / ACCUMULATE
+            </div>
+        </div>
         
-        <tr>
-            <td><strong>^VIX</strong></td>
-            <td>$14.90</td>
-            <td class="negative">-0.25 (-1.65%)</td>
-            <td>36.82</td>
-        </tr>
+        <div class="column-card">
+            <div class="column-title">DIA Technical Indicators</div>
+            <div class="metric-row"><span>20-Day SMA:</span> <strong>$525.89</strong></div>
+            <div class="metric-row"><span>50-Day SMA:</span> <strong>$519.96</strong></div>
+            <div class="metric-row"><span>200-Day SMA:</span> <strong>$489.86</strong></div>
+            <div class="metric-row"><span>RSI (14):</span> <strong>66.8 (Neutral (30-70))</strong></div>
+            <div class="metric-row" style="margin-top: 8px;"><span>20 vs 50 SMA:</span> <strong style="font-size: 11px;">20-SMA Above 50-SMA (Bullish Trend)</strong></div>
+            <div class="metric-row"><span>50 vs 200 SMA:</span> <strong style="font-size: 11px;">50-SMA Above 200-SMA (Golden Alignment)</strong></div>
+            <div class="signal-badge" style="background-color: #dafbe1; color: #1a7f37;">
+                Action: HOLD / ACCUMULATE
+            </div>
+        </div>
         
-            </tbody>
-        </table>
+        <div class="column-card">
+            <div class="column-title">QQQ Technical Indicators</div>
+            <div class="metric-row"><span>20-Day SMA:</span> <strong>$700.34</strong></div>
+            <div class="metric-row"><span>50-Day SMA:</span> <strong>$714.31</strong></div>
+            <div class="metric-row"><span>200-Day SMA:</span> <strong>$646.70</strong></div>
+            <div class="metric-row"><span>RSI (14):</span> <strong>59.6 (Neutral (30-70))</strong></div>
+            <div class="metric-row" style="margin-top: 8px;"><span>20 vs 50 SMA:</span> <strong style="font-size: 11px;">20-SMA Below 50-SMA (Short-term Weakness)</strong></div>
+            <div class="metric-row"><span>50 vs 200 SMA:</span> <strong style="font-size: 11px;">50-SMA Above 200-SMA (Golden Alignment)</strong></div>
+            <div class="signal-badge" style="background-color: #dafbe1; color: #1a7f37;">
+                Action: HOLD / ACCUMULATE
+            </div>
+        </div>
+        
+            </div>
+        </div>
+
+        <!-- Macro Indicators -->
+        <div class="section-box">
+            <h2>Macro Indicators</h2>
+            <div class="macro-grid">
+                <div class="macro-item" style="background-color: #ffebe9; color: #cf222e;">
+                    <div class="macro-label">1. Fed Balance Sheet</div>
+                    <div class="macro-value">QT Ongoing</div>
+                    <div class="macro-comment">Continued balance sheet runoff drains net systemic liquidity over time.</div>
+                </div>
+
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">2. Unemployment Rate</div>
+                    <div class="macro-value">Stable (~4.1%)</div>
+                    <div class="macro-comment">Labor market shows gradual cooling without signaling immediate recession.</div>
+                </div>
+
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">3. CPI & PCE Inflation</div>
+                    <div class="macro-value">Moderating</div>
+                    <div class="macro-comment">Trending downward toward policy targets, though shelter/service stickiness remains.</div>
+                </div>
+
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">4. Yield Curve (10Y-2Y)</div>
+                    <div class="macro-value">Un-inverting</div>
+                    <div class="macro-comment">Transitioning out of inversion; historically warrants late-cycle caution.</div>
+                </div>
+
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">5. Fed Funds Rate</div>
+                    <div class="macro-value">Restrictive Horizon</div>
+                    <div class="macro-comment">Rates remain elevated above neutral level to curb lingering inflation.</div>
+                </div>
+
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">6. Consumer Sentiment</div>
+                    <div class="macro-value">Rangebound</div>
+                    <div class="macro-comment">Balanced between steady labor markets and higher living costs.</div>
+                </div>
+
+                <div class="macro-item" style="background-color: #fff8c5; color: #9a6700;">
+                    <div class="macro-label">7. US Dollar (DXY)</div>
+                    <div class="macro-value">Stable Range</div>
+                    <div class="macro-comment">Neutral impact on multinational corporate earnings performance.</div>
+                </div>
+
+                <div class="macro-item" style="background-color: #dafbe1; color: #1a7f37;">
+                    <div class="macro-label">8. High Yield Spreads</div>
+                    <div class="macro-value">Tight (Low Stress)</div>
+                    <div class="macro-comment">Credit markets signal minimal immediate default risk or liquidity freeze.</div>
+                </div>
+
+                <div class="macro-item" style="background-color: #dafbe1; color: #1a7f37;">
+                    <div class="macro-label">9. Real GDP Growth</div>
+                    <div class="macro-value">Positive Expansion</div>
+                    <div class="macro-comment">Economic activity continues to support underlying corporate earnings.</div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Allocation -->
+        <div class="section-box">
+            <h2>Allocation</h2>
+            <div class="three-column-grid">
+                
+        <div class="column-card">
+            <div class="column-title">SPY Target: 50% Core Allocation</div>
+            <p><strong>Actionable Steps:</strong></p>
+            <ul class="custom-list">
+                <li>Trim 2.5% when 52-wk range > 85% to maintain preservation target.</li>
+                <li>Sweep proceeds into short-term cash equivalents.</li>
+                <li>Re-enter on dips near 200-day SMA ($700.13).</li>
+            </ul>
+        </div>
+        
+        <div class="column-card">
+            <div class="column-title">DIA Target: 20% Value Baseline</div>
+            <p><strong>Actionable Steps:</strong></p>
+            <ul class="custom-list">
+                <li>Maintain defensive posture for yield stability.</li>
+                <li>Rebalance when RSI crosses extreme levels (>70 or <30).</li>
+                <li>Deploy accrued dividends to preserve baseline exposure.</li>
+            </ul>
+        </div>
+        
+        <div class="column-card">
+            <div class="column-title">QQQ Target: 10% Growth Ceiling</div>
+            <p><strong>Actionable Steps:</strong></p>
+            <ul class="custom-list">
+                <li>Cap max exposure to limit high-beta drawdown risk.</li>
+                <li>Enforce strict stop/trim rules when RSI > 70.</li>
+                <li>Harvest tech gains into cash equivalents during late-cycle expansion.</li>
+            </ul>
+        </div>
+        
+            </div>
+        </div>
+
+        <!-- Guidelines -->
+        <div class="section-box">
+            <h2>Guidelines</h2>
+            <ul class="custom-list">
+                <li><strong>52-Week Range Threshold:</strong> When index status remains tagged in the <span style="color: #cf222e; font-weight: bold;">RED zone (≥80%)</span>, sweep gains into cash equivalents.</li>
+                <li><strong>Crossover Action Rule:</strong> On 50/200 SMA <strong>Death Cross</strong>, automatically scale back allocation target by 50%. On <strong>Golden Cross</strong>, hold/accumulate core target.</li>
+                <li><strong>Overbought RSI Discipline:</strong> When RSI (14) > 70, pause new capital injections into high-beta indices (QQQ).</li>
+            </ul>
+        </div>
+
     </div>
 </body>
 </html>
