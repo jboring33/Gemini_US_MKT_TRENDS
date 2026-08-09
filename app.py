@@ -91,18 +91,16 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
       else:
         st.error(f"**{metrics['action']}**")
 
-      st.caption(f"**Reason:** {metrics['reason']}")
-      st.caption(
-          f"📊 **RSI:** {metrics['rsi_commentary']} | **MACD:**"
-          f" {metrics['macd_commentary']}"
-      )
-      st.caption(
-          f"🛡️ **2x ATR Stop:** ${metrics.get('atr_stop', 0):,.2f} | **14D"
-          f" Vol:** ±${metrics.get('atr_val', 0):,.2f}"
-          f" ({metrics.get('atr_pct', 0):.2f}%)"
-      )
-      st.caption(
-          f"**52-Wk Range ({range_pct:.0f}%):** ${low_52:,.2f} – ${high_52:,.2f}"
+      # Plain-English Factor Breakdown
+      st.markdown(f"**Primary Driver:** {metrics['reason']}")
+      
+      st.markdown(
+          f"- **Big Picture Trend:** {'🟢 Bullish (Above long-term average)' if metrics['above_200'] else '🔴 Bearish (Below long-term average)'}\n"
+          f"- **Volume Fuel (RVOL):** {metrics['rvol']}x — {'Heavy Institutional Activity' if metrics['rvol'] >= 1.25 else 'Normal / Retail Trading'}\n"
+          f"- **Speed & Energy (RSI):** {metrics['rsi_commentary']}\n"
+          f"- **Direction (MACD):** {metrics['macd_commentary']}\n"
+          f"- **Safety Net (2x ATR Stop):** ${metrics.get('atr_stop', 0):,.2f} *(14-day expected daily swing: ±${metrics.get('atr_val', 0):,.2f})*\n"
+          f"- **52-Wk Range ({range_pct:.0f}%):** ${low_52:,.2f} – ${high_52:,.2f}"
       )
 
       if metrics["cross_20_50"]:
