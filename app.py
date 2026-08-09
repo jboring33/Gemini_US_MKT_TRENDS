@@ -1,22 +1,17 @@
-from datetime import datetime
 import os
 import sys
 
-# Absolute Path Fix for Streamlit Cloud
+# Ensure repository root is in Python's path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from datetime import datetime
 import pandas as pd
 import pytz
 import streamlit as st
 import yfinance as yf
 
-from config.settings import (
-    CACHE_TTL,
-    PRIMARY_TICKERS,
-    VIX_HIGH_RISK,
-    VIX_LOW_RISK,
-    VOLATILITY_TICKER,
-)
+# Import settings module directly
+import config.settings as settings
 from logic.macro_data import get_macro_risk_indicators
 from logic.metrics import (
     calculate_atr,
