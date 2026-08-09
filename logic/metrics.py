@@ -80,6 +80,21 @@ def evaluate_trend_and_action(df: pd.DataFrame) -> dict:
   macd_bullish = curr_macd > curr_signal
   macd_cross_up = prev_macd < prev_signal and curr_macd > curr_signal
 
+  # Specific RSI & MACD Commentary
+  if rsi >= 70:
+    rsi_commentary = f"RSI Overbought ({rsi:.1f}) — pullback expected"
+  elif rsi <= 30:
+    rsi_commentary = f"RSI Oversold ({rsi:.1f}) — deep value zone"
+  else:
+    rsi_commentary = f"RSI Neutral ({rsi:.1f})"
+
+  if macd_cross_up:
+    macd_commentary = "MACD Bullish Crossover (Momentum Turning Up)"
+  elif macd_bullish:
+    macd_commentary = "MACD Positive Momentum"
+  else:
+    macd_commentary = "MACD Negative Momentum / Pullback"
+
   # Crossover Checks
   cross_20_50 = None
   if sma_20_prev < sma_50_prev and sma_20 > sma_50:
@@ -145,6 +160,8 @@ def evaluate_trend_and_action(df: pd.DataFrame) -> dict:
       "rsi": rsi,
       "rvol": round(rvol, 2),
       "macd_bullish": macd_bullish,
+      "rsi_commentary": rsi_commentary,
+      "macd_commentary": macd_commentary,
       "action": action,
       "reason": reason,
       "badge": badge,
