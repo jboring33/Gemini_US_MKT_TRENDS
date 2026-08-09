@@ -1,224 +1,194 @@
-from datetime import datetime
 import os
-import sys
-
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
+from logic.macro_data import get_macro_risk_indicators
+from logic.metrics import create_interactive_chart, evaluate_trend_and_action
 import pandas as pd
-import pytz
 import streamlit as st
 import yfinance as yf
 
-import config.settings as settings
-from logic.macro_data import get_macro_risk_indicators
-from logic.metrics import (
-    calculate_atr,
-    create_interactive_chart,
-    evaluate_trend_and_action,
-)
-
+# -------------------------------------------------------------------
+# Page Configuration
+# -------------------------------------------------------------------
 st.set_page_config(
-    page_title="US Market Trends & Risk Dashboard",
-    page_icon="🛡️",
+    page_title="Market Strategy & ETF Dashboard",
+    page_icon="📈",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
-TIMEZONE = pytz.timezone("US/Eastern")
-NOW = datetime.now(TIMEZONE)
-
-
-@st.cache_data(ttl=settings.CACHE_TTL)
-def load_market_data():
-  tickers = settings.PRIMARY_TICKERS + [settings.VOLATILITY_TICKER]
-  data = {}
-  for t in tickers:
-    try:
-      tk = yf.Ticker(t)
-      df = tk.history(period="1y")
-      if not df.empty and len(df) >= 200:
-        data[t] = df
-    except Exception as e:
-      st.error(f"Error loading ticker {t}: {e}")
-  return data
-
-
-market_data = load_market_data()
-
-st.title("🛡️ Moderate / Conservative Market Trend Dashboard")
+st.title("📈 ETF & Market Strategy Dashboard")
 st.caption(
-    f"Primary Benchmarks: **SPY, DIA, QQQ** | Last Updated:"
-    f" {NOW.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+    "Automated Market Regime Analysis, Multi-Indicator Technicals, and Macro"
+    " Risk Cards"
 )
 
-# -----------------------------------------------------------------------------
-# 1. Executive Summary & Quick Reference Guides
-# -----------------------------------------------------------------------------
-st.subheader("1. Broad Market Guidance & Pricing")
 
-cols = st.columns(len(settings.PRIMARY_TICKERS))
+# -------------------------------------------------------------------
+# Data Retrieval Helper
+# -------------------------------------------------------------------
+@st.cache_data(ttl=3600)
+def fetch_market_data(ticker: str, period: str = "1y") -> pd.DataFrame:
+  """Fetch historical daily data for a ticker using yfinance."""
+  try:
+    df = yf.download(ticker, period=period, interval="1d", progress=False)
+    if isinstance(df.columns, pd.MultiIndex):
+      df.columns = df.columns.get_level_values(0)
+    return df.dropna()
+  except Exception as e:
+    st.error(f"Error fetching data for {ticker}: {e}")
+    return pd.DataFrame()
 
-for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
-  with cols[idx]:
-    if ticker in market_data:
-      df = market_data[ticker]
-      metrics = evaluate_trend_and_action(df)
 
-      prev_price = float(df["Close"].iloc[-2])
-      change = metrics["curr_price"] - prev_price
-      pct_change = (change / prev_price) * 100
+# -------------------------------------------------------------------
+# Sidebar Controls
+# -------------------------------------------------------------------
+with st.sidebar:
+  st.header("⚙️ Dashboard Settings")
 
-      low_52 = float(df["Low"].min())
-      high_52 = float(df["High"].max())
-      range_pct = (
-          ((metrics["curr_price"] - low_52) / (high_52 - low_52)) * 100
-          if high_52 > low_52
-          else 0
-      )
+  selected_indices = st.multiselect(
+      "Major Index ETFs",
+      options=["SPY", "QQQ", "DIA", "IWM"],
+      default=["SPY", "QQQ", "DIA"],
+  )
 
-      st.metric(
-          label=ticker,
-          value=f"${metrics['curr_price']:,.2f}",
-          delta=f"{change:+.2f} ({pct_change:+.2f}%)",
-      )
+  lookback_period = st.selectbox(
+      "Chart History Period",
+      options=["6m", "1y", "2y", "5y"],
+      index=1,
+  )
 
-      # Direct Matrix Action Badge
-      if metrics["badge"] == "success":
-        st.success(f"**{metrics['action']}**")
-      elif metrics["badge"] == "warning":
-        st.warning(f"**{metrics['action']}**")
-      elif metrics["badge"] == "info":
-        st.info(f"**{metrics['action']}**")
-      else:
-        st.error(f"**{metrics['action']}**")
+  st.markdown("---")
+  st.markdown("### 📌 Indicator Quick Ref")
+  st.markdown("- **20 SMA:** Red | Short-term trend")
+  st.markdown("- **50 SMA:** Yellow | Intermediate trend")
+  st.markdown("- **200 SMA:** Green | Structural trend")
+  st.markdown("- **RVOL ≥ 1.25x:** Institutional Volume")
 
-      st.caption(f"**Reason:** {metrics['reason']}")
-      st.caption(
-          f"📊 **RSI:** {metrics['rsi_commentary']} | **MACD:**"
-          f" {metrics['macd_commentary']}"
-      )
-      st.caption(
-          f"**52-Wk Range ({range_pct:.0f}%):** ${low_52:,.2f} – ${high_52:,.2f}"
-      )
 
-      if metrics["cross_20_50"]:
-        st.info(metrics["cross_20_50"])
-      if metrics["cross_50_200"]:
-        st.warning(metrics["cross_50_200"])
+# -------------------------------------------------------------------
+# SECTION 1: Major Index Technical & Risk Matrix
+# -------------------------------------------------------------------
+st.subheader("Section 1: Major Index Technical & Risk Matrix")
 
-# Static Decision Matrix, RVOL, and Momentum Reference Guides
-ref_col1, ref_col2, ref_col3 = st.columns(3)
+if selected_indices:
+  cols = st.columns(len(selected_indices))
 
-with ref_col1:
-  with st.expander("📖 Action Matrix Reference", expanded=False):
-    st.markdown("""
-        | Dashboard Signal | Lump-Sum | Routine DCA |
-        | :--- | :--- | :--- |
-        | **`ACCUMULATE`** | 🟢 **Buy Dips** | 🟢 **Green Light** |
-        | **`HOLD`** | 🟡 **Wait** | 🟢 **Green Light** |
-        | **`PAUSE BUYS`** | 🔴 **Stop** | 🟡 **Pause / Cash** |
-        | **`TRIM / DEFENSIVE`** | 🔴 **Stop** | 🔴 **Pause** |
-        """)
+  for col, ticker in zip(cols, selected_indices):
+    df = fetch_market_data(ticker, period=lookback_period)
 
-with ref_col2:
-  with st.expander("📊 Relative Volume (RVOL) Guide", expanded=False):
-    st.markdown("""
-        | RVOL Level | Institutional Meaning | Action |
-        | :--- | :--- | :--- |
-        | **$\ge$ 1.25x** | 🏦 **Institutional Surge** | Confirms breakouts/dips. |
-        | **0.85x – 1.24x** | ⚖️ **Normal Volume** | Standard trend movement. |
-        | **$<$ 0.85x** | ⚠️ **Retail Churn** | Weak fuel; prone to reversals. |
-        """)
+    if not df.empty:
+      eval_data = evaluate_trend_and_action(df)
 
-with ref_col3:
-  with st.expander("📈 RSI & MACD Momentum Guide", expanded=False):
-    st.markdown("""
-        | Indicator | Reading / Signal | Tactical Meaning |
-        | :--- | :--- | :--- |
-        | **RSI (14)** | **$\ge$ 70** | **Overbought:** Pause new lump-sum buys. |
-        | **RSI (14)** | **$\le$ 30** | **Oversold:** Potential deep value entry. |
-        | **MACD** | **Line $>$ Signal** | **Bullish Momentum:** Upward momentum intact. |
-        | **MACD** | **Bull Crossover** | **Buy Signal:** Line crosses above signal line. |
-        """)
+      with col:
+        st.markdown(f"### **{ticker}**")
 
-# -----------------------------------------------------------------------------
-# 2. Interactive Technical Charts
-# -----------------------------------------------------------------------------
-st.divider()
-st.subheader("2. Price Action & Volume Technical Charts")
+        # Action Badge
+        badge_type = eval_data.get("badge", "info")
+        action_text = eval_data.get("action", "HOLD")
 
-chart_tab1, chart_tab2, chart_tab3 = st.tabs(
-    ["SPY Chart", "DIA Chart", "QQQ Chart"]
-)
-tab_map = {"SPY": chart_tab1, "DIA": chart_tab2, "QQQ": chart_tab3}
+        if badge_type == "success":
+          st.success(f"**{action_text}**")
+        elif badge_type == "warning":
+          st.warning(f"**{action_text}**")
+        elif badge_type == "error":
+          st.error(f"**{action_text}**")
+        else:
+          st.info(f"**{action_text}**")
 
-for ticker, tab in tab_map.items():
-  with tab:
-    if ticker in market_data:
-      fig = create_interactive_chart(market_data[ticker], ticker)
-      st.plotly_chart(fig, use_container_width=True)
+        st.caption(f"**Reason:** {eval_data.get('reason', 'N/A')}")
 
-# -----------------------------------------------------------------------------
-# 3. Volatility & Risk Profiling
-# -----------------------------------------------------------------------------
-st.divider()
-st.subheader("3. Volatility & Position Risk Profiling")
+        # Primary Metric Grid
+        m1, m2 = st.columns(2)
+        m1.metric("Price", f"${eval_data['curr_price']:.2f}")
+        m2.metric("RVOL", f"{eval_data['rvol']}x")
 
-v_col1, v_col2 = st.columns([1, 2])
+        m3, m4 = st.columns(2)
+        m3.metric("RSI (14)", f"{eval_data['rsi']}")
+        m4.metric(
+            "MACD", "Bullish" if eval_data["macd_bullish"] else "Bearish"
+        )
 
-with v_col1:
-  if settings.VOLATILITY_TICKER in market_data:
-    vix_df = market_data[settings.VOLATILITY_TICKER]
-    vix_val = float(vix_df["Close"].iloc[-1])
-    vix_prev = float(vix_df["Close"].iloc[-2])
-    vix_change = vix_val - vix_prev
-
-    if vix_val < settings.VIX_LOW_RISK:
-      vix_status = "LOW VOLATILITY (Favorable)"
-      v_color = "normal"
-    elif vix_val <= settings.VIX_HIGH_RISK:
-      vix_status = "MODERATE VOLATILITY (Caution)"
-      v_color = "off"
-    else:
-      vix_status = "ELEVATED VOLATILITY / PANIC"
-      v_color = "inverse"
-
-    st.metric(
-        label=f"CBOE Volatility Index (VIX) — {vix_status}",
-        value=f"{vix_val:.2f}",
-        delta=f"{vix_change:+.2f} vs yesterday",
-        delta_color=v_color,
-    )
-
-with v_col2:
-  st.markdown("#### 14-Day Expected Daily Volatility (ATR)")
-  atr_cols = st.columns(len(settings.PRIMARY_TICKERS))
-  for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
-    with atr_cols[idx]:
-      if ticker in market_data:
-        atr_info = calculate_atr(market_data[ticker])
+        # ATR Trailing Stop Integrated Directly inside the Card
+        st.markdown("---")
         st.metric(
-            label=f"{ticker} Daily Range",
-            value=f"± ${atr_info['atr_val']:.2f}",
-            delta=f"~{atr_info['atr_pct']:.2f}% of price",
+            label="2x ATR Trailing Stop",
+            value=f"${eval_data['atr_stop']:.2f}",
+            delta=(
+                f"14D Vol: {eval_data['atr_pct']}% (${eval_data['atr_val']})"
+            ),
             delta_color="off",
         )
 
-# -----------------------------------------------------------------------------
-# 4. Economic & Macro Risk Cards
-# -----------------------------------------------------------------------------
-st.divider()
-st.subheader("4. Economic & Macro Regime Cards")
-macro_list = get_macro_risk_indicators()
-m_cols = st.columns(3)
+        # Crossover alerts if present
+        if eval_data.get("cross_50_200"):
+          st.info(eval_data["cross_50_200"])
+        elif eval_data.get("cross_20_50"):
+          st.caption(eval_data["cross_20_50"])
 
-for idx, item in enumerate(macro_list):
-  with m_cols[idx % 3]:
-    with st.container(border=True):
-      st.markdown(f"**{item['title']}**")
-      if item["color"] == "green":
-        st.caption(f"🟢 **{item['status']}**")
-      elif item["color"] == "yellow":
-        st.caption(f"🟡 **{item['status']}**")
-      else:
-        st.caption(f"🔴 **{item['status']}**")
-      st.write(item["detail"])
+st.markdown("---")
+
+
+# -------------------------------------------------------------------
+# SECTION 2: Detailed Interactive Technical Charting
+# -------------------------------------------------------------------
+st.subheader("Section 2: Interactive Multi-Indicator Analysis")
+
+focus_ticker = st.selectbox(
+    "Select Ticker for Detailed Breakdown",
+    options=selected_indices,
+    index=0 if selected_indices else None,
+)
+
+if focus_ticker:
+  chart_df = fetch_market_data(focus_ticker, period=lookback_period)
+  if not chart_df.empty:
+    fig = create_interactive_chart(chart_df, focus_ticker)
+    st.plotly_chart(fig, use_container_width=True)
+
+st.markdown("---")
+
+
+# -------------------------------------------------------------------
+# SECTION 3: Strategic Portfolio Universe & Recommendations
+# -------------------------------------------------------------------
+st.subheader("Section 3: Portfolio Favorites & Core ETFs")
+
+favorites = ["VFLO", "SCHD", "SCYB", "JPST", "JAAA"]
+fav_cols = st.columns(len(favorites))
+
+for col, fav_ticker in zip(fav_cols, favorites):
+  fav_df = fetch_market_data(fav_ticker, period="1y")
+  if not fav_df.empty:
+    fav_eval = evaluate_trend_and_action(fav_df)
+    with col:
+      st.markdown(f"#### **{fav_ticker}**")
+      st.metric("Price", f"${fav_eval['curr_price']:.2f}")
+      st.caption(f"Action: **{fav_eval['action']}**")
+      st.caption(f"2x ATR Stop: **${fav_eval['atr_stop']:.2f}**")
+
+st.markdown("---")
+
+
+# -------------------------------------------------------------------
+# SECTION 4: Macro & Economic Regime Cards (Including VIX)
+# -------------------------------------------------------------------
+st.subheader("Section 4: Macro & Economic Regime Cards")
+
+macro_cards = get_macro_risk_indicators()
+macro_cols = st.columns(2)
+
+for i, card in enumerate(macro_cards):
+  with macro_cols[i % 2]:
+    st.markdown(f"#### {card['title']}")
+
+    status_color = card.get("color", "info")
+    if status_color == "green":
+      st.success(f"Status:")
+    elif status_color == "yellow":
+      st.warning(f"Status:")
+    elif status_color == "red":
+      st.error(f"Status:")
+    else:
+      st.info(f"Status:")
+
+    st.write(card["detail"])
+    st.markdown("---")
