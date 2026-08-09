@@ -74,14 +74,6 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
           else 0
       )
 
-      # Determine plain-English 52-week position summary
-      if range_pct >= 85:
-        range_status = "Trading near 52-Week Highs (Strong Momentum)"
-      elif range_pct <= 20:
-        range_status = "Trading near 52-Week Lows (Value / Pullback)"
-      else:
-        range_status = "Mid-Range relative to 52-Week High/Low"
-
       st.metric(
           label=ticker,
           value=f"${metrics['curr_price']:,.2f}",
@@ -98,16 +90,117 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
       else:
         st.error(f"**{metrics['action']}**")
 
-      # Plain-English Factor Breakdown
+      # -----------------------------------------------------------------------
+      # Color-Coded Factor Evaluation
+      # -----------------------------------------------------------------------
+      # 1. Trend Factor
+      if metrics.get("above_200", False):
+        trend_bullet = (
+            "🟢 **Big Picture Trend:** Bullish (Above long-term 200 SMA)"
+        )
+      else:
+        trend_bullet = (
+            "🔴 **Big Picture Trend:** Bearish (Below long-term 200 SMA)"
+        )
+
+      # 2. Volume Fuel Factor (RVOL)
+      rvol_val = metrics.get("rvol", 1.0)
+      if rvol_val >= 1.25:
+        rvol_bullet = (
+            f"🟢 **Volume Fuel (RVOL):** {rvol_val}x — High Institutional"
+            " Conviction"
+        )
+      elif rvol_val >= 0.85:
+        rvol_bullet = (
+            f"⚪ **Volume Fuel (RVOL):** {rvol_val}x — Normal Trading Volume"
+        )
+      else:
+        rvol_bullet = (
+            f"🟡 **Volume Fuel (RVOL):** {rvol_val}x — Low Volume / Retail"
+            " Churn"
+        )
+
+      # 3. Speed & Energy Factor (RSI)
+      rsi_val = metrics.get("rsi", 50)
+      if rsi_val >= 70:
+        rsi_bullet = (
+            f"🔴 **Speed & Energy (RSI {rsi_val}):** Overbought (Extended /"
+            " Pullback Risk)"
+        )
+      elif rsi_val <= 30:
+        rsi_bullet = (
+            f"🟢 **Speed & Energy (RSI {rsi_val}):** Oversold (Potential Dip"
+            " Value Entry)"
+        )
+      elif rsi_val >= 50:
+        rsi_bullet = (
+            f"🟢 **Speed & Energy (RSI {rsi_val}):** Positive Bullish"
+            " Momentum"
+        )
+      else:
+        rsi_bullet = (
+            f"🟡 **Speed & Energy (RSI {rsi_val}):** Neutral to Weak Momentum"
+        )
+
+      # 4. Direction Factor (MACD)
+      if metrics.get("macd_bullish", False):
+        macd_bullet = (
+            "🟢 **Direction (MACD):** Bullish (Momentum moving upward)"
+        )
+      else:
+        macd_bullet = (
+            "🔴 **Direction (MACD):** Bearish (Momentum slowing / downward)"
+        )
+
+      # 5. 52-Week Position Factor
+      if range_pct >= 85:
+        range_bullet = (
+            f"🔴 **52-Wk Position ({range_pct:.0f}%):** Extended Near Highs"
+            f" (Pullback Risk) *(Low: ${low_52:,.2f} | High: ${high_52:,.2f})*"
+        )
+      elif range_pct <= 20:
+        range_bullet = (
+            f"🟢 **52-Wk Position ({range_pct:.0f}%):** Near 52-Wk Lows"
+            f" (Value Zone) *(Low: ${low_52:,.2f} | High: ${high_52:,.2f})*"
+        )
+      else:
+        range_bullet = (
+            f"⚪ **52-Wk Position ({range_pct:.0f}%):** Mid-Range"
+            f" Consolidation *(Low: ${low_52:,.2f} | High: ${high_52:,.2f})*"
+        )
+
+      # Map factors to pull primary driver to the top
+      factor_map = {
+          "trend": trend_bullet,
+          "rvol": rvol_bullet,
+          "rsi": rsi_bullet,
+          "macd": macd_bullet,
+          "range": range_bullet,
+      }
+
+      # Determine primary key from reason string
+      reason_str = str(metrics.get("reason", "")).lower()
+      if "200" in reason_str or "trend" in reason_str:
+        primary_key = "trend"
+      elif "rsi" in reason_str or "overbought" in reason_str or "oversold" in reason_str:
+        primary_key = "rsi"
+      elif "macd" in reason_str:
+        primary_key = "macd"
+      elif "rvol" in reason_str or "volume" in reason_str:
+        primary_key = "rvol"
+      elif "52" in reason_str or "high" in reason_str or "low" in reason_str:
+        primary_key = "range"
+      else:
+        primary_key = "trend"
+
+      # Re-order list so Primary Driver is FIRST
+      ordered_bullets = [factor_map[primary_key]] + [
+          b for k, b in factor_map.items() if k != primary_key
+      ]
+
       st.markdown(f"**Primary Driver:** {metrics['reason']}")
-      
-      st.markdown(
-          f"- **Big Picture Trend:** {'🟢 Bullish (Above long-term average)' if metrics['above_200'] else '🔴 Bearish (Below long-term average)'}\n"
-          f"- **Volume Fuel (RVOL):** {metrics['rvol']}x — {'Heavy Institutional Activity' if metrics['rvol'] >= 1.25 else 'Normal / Retail Trading'}\n"
-          f"- **Speed & Energy (RSI):** {metrics['rsi_commentary']}\n"
-          f"- **Direction (MACD):** {metrics['macd_commentary']}\n"
-          f"- **52-Wk Position ({range_pct:.0f}%):** {range_status} *(${low_52:,.2f} – ${high_52:,.2f})*"
-      )
+      for bullet in ordered_bullets:
+        st.markdown(f"- {bullet}")
 
       if metrics["cross_20_50"]:
         st.info(metrics["cross_20_50"])
