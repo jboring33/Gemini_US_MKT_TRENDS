@@ -21,7 +21,7 @@ def calculate_rsi(prices: pd.Series, period: int = 14) -> float:
 
 
 def calculate_atr(df: pd.DataFrame, period: int = 14) -> dict:
-  """Calculate Average True Range (ATR) & volatility percentage."""
+  """Calculate Average True Range (ATR), volatility percentage, and trailing stop recommendations."""
   high = df["High"]
   low = df["Low"]
   close = df["Close"].shift(1)
@@ -33,16 +33,23 @@ def calculate_atr(df: pd.DataFrame, period: int = 14) -> dict:
   tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
   atr = tr.rolling(period).mean().iloc[-1]
 
-  curr_price = df["Close"].iloc[-1]
+  curr_price = float(df["Close"].iloc[-1])
   atr_pct = (atr / curr_price) * 100
 
-  return {"atr_val": float(round(atr, 2)), "atr_pct": float(round(atr_pct, 2))}
+  # Strategic Risk Envelope: 2x ATR Trailing Stop
+  atr_stop_2x = curr_price - (2 * atr)
+
+  return {
+      "atr_val": float(round(atr, 2)),
+      "atr_pct": float(round(atr_pct, 2)),
+      "atr_stop_2x": float(round(atr_stop_2x, 2)),
+  }
 
 
 def evaluate_trend_and_action(df: pd.DataFrame) -> dict:
-  """Multi-indicator rule engine combining Price Action, SMAs, RVOL, RSI, and MACD.
+  """Multi-indicator rule engine combining Price Action, SMAs, RVOL, RSI, MACD, and ATR.
 
-  Outputs Matrix-Aligned Actions & Reasons for the dashboard.
+  Outputs Matrix-Aligned Actions, Reasons, and ATR Trailing Stop level.
   """
   prices = df["Close"]
   volumes = df["Volume"]
@@ -68,6 +75,9 @@ def evaluate_trend_and_action(df: pd.DataFrame) -> dict:
 
   # RSI
   rsi = calculate_rsi(prices)
+
+  # ATR & Trailing Stop Calculation
+  atr_data = calculate_atr(df)
 
   # MACD
   ema_12 = prices.ewm(span=12, adjust=False).mean()
@@ -159,6 +169,9 @@ def evaluate_trend_and_action(df: pd.DataFrame) -> dict:
       "sma_200": round(sma_200, 2),
       "rsi": rsi,
       "rvol": round(rvol, 2),
+      "atr_val": atr_data["atr_val"],
+      "atr_pct": atr_data["atr_pct"],
+      "atr_stop": atr_data["atr_stop_2x"],
       "macd_bullish": macd_bullish,
       "rsi_commentary": rsi_commentary,
       "macd_commentary": macd_commentary,
