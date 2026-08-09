@@ -101,16 +101,31 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
       if metrics["cross_50_200"]:
         st.warning(metrics["cross_50_200"])
 
-# Static Decision Matrix Reference Guide
-with st.expander("📖 Action Matrix Reference Guide", expanded=False):
-  st.markdown("""
-    | Dashboard Signal | Lump-Sum Buying | Routine DCA / Reinvesting | Existing Positions |
-    | :--- | :--- | :--- | :--- |
-    | **`ACCUMULATE`** | 🟢 **Green Light** (Buy Dips) | 🟢 **Green Light** | Add to Core / Hold |
-    | **`HOLD`** | 🟡 **Wait** (For Pullback/Volume) | 🟢 **Green Light** | Hold Core |
-    | **`PAUSE BUYS`** | 🔴 **Stop** (Overbought/Distribution) | 🟡 **Pause / Hold Cash** | Hold / Tighten Stops |
-    | **`TRIM / DEFENSIVE`** | 🔴 **Stop** | 🔴 **Pause** | Reduce Risk / Raise Cash |
-    """)
+# Static Decision Matrix & Relative Volume Reference Guides
+ref_col1, ref_col2 = st.columns(2)
+
+with ref_col1:
+  with st.expander("📖 Action Matrix Reference Guide", expanded=False):
+    st.markdown("""
+        | Dashboard Signal | Lump-Sum Buying | Routine DCA / Reinvesting | Existing Positions |
+        | :--- | :--- | :--- | :--- |
+        | **`ACCUMULATE`** | 🟢 **Green Light** (Buy Dips) | 🟢 **Green Light** | Add to Core / Hold |
+        | **`HOLD`** | 🟡 **Wait** (For Pullback/Volume) | 🟢 **Green Light** | Hold Core |
+        | **`PAUSE BUYS`** | 🔴 **Stop** (Overbought/Distribution) | 🟡 **Pause / Hold Cash** | Hold / Tighten Stops |
+        | **`TRIM / DEFENSIVE`** | 🔴 **Stop** | 🔴 **Pause** | Reduce Risk / Raise Cash |
+        """)
+
+with ref_col2:
+  with st.expander("📊 Relative Volume (RVOL) Reference Guide", expanded=False):
+    st.markdown("""
+        **Formula:** $\\text{RVOL} = \\frac{\\text{Current Volume}}{\\text{20-Day Average Volume}}$
+        
+        | RVOL Level | Institutional Interpretation | Action Guidance |
+        | :--- | :--- | :--- |
+        | **$\ge$ 1.25x** | 🏦 **Institutional Surge** | Validates major breakouts or dip buying support. High confidence. |
+        | **0.85x – 1.24x** | ⚖️ **Normal Participation** | Standard market conditions; steady trend progression. |
+        | **$<$ 0.85x** | ⚠️ **Weak Volume / Retail Churn** | Move lacks big fund support. Vulnerable to sudden reversals. |
+        """)
 
 # -----------------------------------------------------------------------------
 # 2. Interactive Technical Charts
