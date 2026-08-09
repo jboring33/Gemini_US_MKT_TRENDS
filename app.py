@@ -1,134 +1,183 @@
+from datetime import datetime
+import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+import pandas as pd
+import pytz
 import streamlit as st
 import yfinance as yf
-import pandas as pd
-from logic.metrics import evaluate_trend_and_action, create_interactive_chart
-from logic.macro_data import get_macro_risk_indicators
 
-# -------------------------------------------------------------------
-# Page Configuration
-# -------------------------------------------------------------------
-st.set_page_config(
-    page_title="ETF Strategy Dashboard",
-    page_icon="📈",
-    layout="wide"
+import config.settings as settings
+from logic.macro_data import get_macro_risk_indicators
+from logic.metrics import (
+    calculate_atr,
+    create_interactive_chart,
+    evaluate_trend_and_action,
 )
 
-st.title("📈 ETF Strategy & Market Dashboard")
+st.set_page_config(
+    page_title="US Market Trends & Risk Dashboard",
+    page_icon="🛡️",
+    layout="wide",
+)
 
-# -------------------------------------------------------------------
-# Data Retrieval Helper
-# -------------------------------------------------------------------
-@st.cache_data(ttl=3600)
-def fetch_data(ticker: str, period: str = "1y") -> pd.DataFrame:
+TIMEZONE = pytz.timezone("US/Eastern")
+NOW = datetime.now(TIMEZONE)
+
+
+@st.cache_data(ttl=settings.CACHE_TTL)
+def load_market_data():
+  tickers = settings.PRIMARY_TICKERS + [settings.VOLATILITY_TICKER]
+  data = {}
+  for t in tickers:
     try:
-        df = yf.download(ticker, period=period, interval="1d", progress=False)
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-        return df.dropna()
+      tk = yf.Ticker(t)
+      df = tk.history(period="1y")
+      if not df.empty and len(df) >= 200:
+        data[t] = df
     except Exception as e:
-        st.error(f"Error fetching data for {ticker}: {e}")
-        return pd.DataFrame()
+      st.error(f"Error loading ticker {t}: {e}")
+  return data
 
-# -------------------------------------------------------------------
-# Sidebar Controls
-# -------------------------------------------------------------------
-with st.sidebar:
-    st.header("Dashboard Settings")
-    selected_indices = st.multiselect(
-        "Major Index ETFs",
-        options=["SPY", "QQQ", "DIA", "IWM"],
-        default=["SPY", "QQQ", "DIA"]
-    )
-    lookback = st.selectbox("History Period", options=["6m", "1y", "2y"], index=1)
 
-# -------------------------------------------------------------------
-# SECTION 1: Major Index Technical & Risk Matrix
-# -------------------------------------------------------------------
-st.subheader("Section 1: Major Index Technical & Risk Matrix")
+market_data = load_market_data()
 
-if selected_indices:
-    cols = st.columns(len(selected_indices))
-    
-    for col, ticker in zip(cols, selected_indices):
-        df = fetch_data(ticker, period=lookback)
-        
-        if not df.empty:
-            eval_data = evaluate_trend_and_action(df)
-            
-            with col:
-                st.markdown(f"### **{ticker}**")
-                
-                # Action Badge
-                badge_type = eval_data.get("badge", "info")
-                action_text = eval_data.get("action", "HOLD")
-                
-                if badge_type == "success":
-                    st.success(f"**{action_text}**")
-                elif badge_type == "warning":
-                    st.warning(f"**{action_text}**")
-                elif badge_type == "error":
-                    st.error(f"**{action_text}**")
-                else:
-                    st.info(f"**{action_text}**")
-                
-                st.caption(f"**Reason:** {eval_data.get('reason', 'N/A')}")
-                
-                # Metric Grid
-                m1, m2 = st.columns(2)
-                m1.metric("Price", f"${eval_data['curr_price']:.2f}")
-                m2.metric("RVOL", f"{eval_data['rvol']}x")
-                
-                m3, m4 = st.columns(2)
-                m3.metric("RSI (14)", f"{eval_data['rsi']}")
-                m4.metric("MACD", "Bullish" if eval_data["macd_bullish"] else "Bearish")
-                
-                # ATR Trailing Stop Card Metric
-                st.markdown("---")
-                st.metric(
-                    label="2x ATR Trailing Stop",
-                    value=f"${eval_data['atr_stop']:.2f}",
-                    delta=f"14D Vol: {eval_data['atr_pct']}% (${eval_data['atr_val']})",
-                    delta_color="off"
-                )
+st.title("🛡️ Moderate / Conservative Market Trend Dashboard")
+st.caption(
+    f"Primary Benchmarks: **SPY, DIA, QQQ** | Last Updated:"
+    f" {NOW.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+)
 
-st.markdown("---")
+# -----------------------------------------------------------------------------
+# 1. Executive Summary & Quick Reference Guides
+# -----------------------------------------------------------------------------
+st.subheader("1. Broad Market Guidance & Pricing")
 
-# -------------------------------------------------------------------
-# SECTION 2: Interactive Technical Charting
-# -------------------------------------------------------------------
-st.subheader("Section 2: Technical Chart")
+cols = st.columns(len(settings.PRIMARY_TICKERS))
 
-focus_ticker = st.selectbox("Select Ticker for Detailed Breakdown", options=selected_indices, index=0 if selected_indices else None)
+for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
+  with cols[idx]:
+    if ticker in market_data:
+      df = market_data[ticker]
+      metrics = evaluate_trend_and_action(df)
 
-if focus_ticker:
-    chart_df = fetch_data(focus_ticker, period=lookback)
-    if not chart_df.empty:
-        fig = create_interactive_chart(chart_df, focus_ticker)
-        st.plotly_chart(fig, use_container_width=True)
+      prev_price = float(df["Close"].iloc[-2])
+      change = metrics["curr_price"] - prev_price
+      pct_change = (change / prev_price) * 100
 
-st.markdown("---")
+      low_52 = float(df["Low"].min())
+      high_52 = float(df["High"].max())
+      range_pct = (
+          ((metrics["curr_price"] - low_52) / (high_52 - low_52)) * 100
+          if high_52 > low_52
+          else 0
+      )
 
-# -------------------------------------------------------------------
-# SECTION 4: Macro & Economic Regime Cards (Including VIX)
-# -------------------------------------------------------------------
-st.subheader("Section 4: Macro & Economic Regime Cards")
+      st.metric(
+          label=ticker,
+          value=f"${metrics['curr_price']:,.2f}",
+          delta=f"{change:+.2f} ({pct_change:+.2f}%)",
+      )
 
-macro_cards = get_macro_risk_indicators()
-macro_cols = st.columns(2)
+      # Direct Matrix Action Badge
+      if metrics["badge"] == "success":
+        st.success(f"**{metrics['action']}**")
+      elif metrics["badge"] == "warning":
+        st.warning(f"**{metrics['action']}**")
+      elif metrics["badge"] == "info":
+        st.info(f"**{metrics['action']}**")
+      else:
+        st.error(f"**{metrics['action']}**")
 
-for i, card in enumerate(macro_cards):
-    with macro_cols[i % 2]:
-        st.markdown(f"#### {card['title']}")
-        
-        status_color = card.get("color", "info")
-        if status_color == "green":
-            st.success(f"Status:")
-        elif status_color == "yellow":
-            st.warning(f"Status:")
-        elif status_color == "red":
-            st.error(f"Status:")
-        else:
-            st.info(f"Status:")
-            
-        st.write(card["detail"])
-        st.markdown("---")
+      st.caption(f"**Reason:** {metrics['reason']}")
+      st.caption(
+          f"📊 **RSI:** {metrics['rsi_commentary']} | **MACD:**"
+          f" {metrics['macd_commentary']}"
+      )
+      st.caption(
+          f"🛡️ **2x ATR Stop:** ${metrics.get('atr_stop', 0):,.2f} | **14D"
+          f" Vol:** ±${metrics.get('atr_val', 0):,.2f}"
+          f" ({metrics.get('atr_pct', 0):.2f}%)"
+      )
+      st.caption(
+          f"**52-Wk Range ({range_pct:.0f}%):** ${low_52:,.2f} – ${high_52:,.2f}"
+      )
+
+      if metrics["cross_20_50"]:
+        st.info(metrics["cross_20_50"])
+      if metrics["cross_50_200"]:
+        st.warning(metrics["cross_50_200"])
+
+# Static Decision Matrix, RVOL, and Momentum Reference Guides
+ref_col1, ref_col2, ref_col3 = st.columns(3)
+
+with ref_col1:
+  with st.expander("📖 Action Matrix Reference", expanded=False):
+    st.markdown("""
+        | Dashboard Signal | Lump-Sum | Routine DCA |
+        | :--- | :--- | :--- |
+        | **`ACCUMULATE`** | 🟢 **Buy Dips** | 🟢 **Green Light** |
+        | **`HOLD`** | 🟡 **Wait** | 🟢 **Green Light** |
+        | **`PAUSE BUYS`** | 🔴 **Stop** | 🟡 **Pause / Cash** |
+        | **`TRIM / DEFENSIVE`** | 🔴 **Stop** | 🔴 **Pause** |
+        """)
+
+with ref_col2:
+  with st.expander("📊 Relative Volume (RVOL) Guide", expanded=False):
+    st.markdown("""
+        | RVOL Level | Institutional Meaning | Action |
+        | :--- | :--- | :--- |
+        | **$\ge$ 1.25x** | 🏦 **Institutional Surge** | Confirms breakouts/dips. |
+        | **0.85x – 1.24x** | ⚖️ **Normal Volume** | Standard trend movement. |
+        | **$<$ 0.85x** | ⚠️ **Retail Churn** | Weak fuel; prone to reversals. |
+        """)
+
+with ref_col3:
+  with st.expander("📈 RSI & MACD Momentum Guide", expanded=False):
+    st.markdown("""
+        | Indicator | Reading / Signal | Tactical Meaning |
+        | :--- | :--- | :--- |
+        | **RSI (14)** | **$\ge$ 70** | **Overbought:** Pause new lump-sum buys. |
+        | **RSI (14)** | **$\le$ 30** | **Oversold:** Potential deep value entry. |
+        | **MACD** | **Line $>$ Signal** | **Bullish Momentum:** Upward momentum intact. |
+        | **MACD** | **Bull Crossover** | **Buy Signal:** Line crosses above signal line. |
+        """)
+
+# -----------------------------------------------------------------------------
+# 2. Interactive Technical Charts
+# -----------------------------------------------------------------------------
+st.divider()
+st.subheader("2. Price Action & Volume Technical Charts")
+
+chart_tab1, chart_tab2, chart_tab3 = st.tabs(
+    ["SPY Chart", "DIA Chart", "QQQ Chart"]
+)
+tab_map = {"SPY": chart_tab1, "DIA": chart_tab2, "QQQ": chart_tab3}
+
+for ticker, tab in tab_map.items():
+  with tab:
+    if ticker in market_data:
+      fig = create_interactive_chart(market_data[ticker], ticker)
+      st.plotly_chart(fig, use_container_width=True)
+
+# -----------------------------------------------------------------------------
+# 3. Economic & Macro Risk Cards
+# -----------------------------------------------------------------------------
+st.divider()
+st.subheader("3. Economic & Macro Regime Cards")
+macro_list = get_macro_risk_indicators()
+m_cols = st.columns(3)
+
+for idx, item in enumerate(macro_list):
+  with m_cols[idx % 3]:
+    with st.container(border=True):
+      st.markdown(f"**{item['title']}**")
+      if item["color"] == "green":
+        st.caption(f"🟢 **{item['status']}**")
+      elif item["color"] == "yellow":
+        st.caption(f"🟡 **{item['status']}**")
+      else:
+        st.caption(f"🔴 **{item['status']}**")
+      st.write(item["detail"])
