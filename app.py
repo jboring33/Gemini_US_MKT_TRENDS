@@ -12,7 +12,6 @@ import yfinance as yf
 import config.settings as settings
 from logic.macro_data import get_macro_risk_indicators
 from logic.metrics import (
-    calculate_atr,
     create_interactive_chart,
     evaluate_trend_and_action,
 )
@@ -75,6 +74,14 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
           else 0
       )
 
+      # Determine plain-English 52-week position summary
+      if range_pct >= 85:
+        range_status = "Trading near 52-Week Highs (Strong Momentum)"
+      elif range_pct <= 20:
+        range_status = "Trading near 52-Week Lows (Value / Pullback)"
+      else:
+        range_status = "Mid-Range relative to 52-Week High/Low"
+
       st.metric(
           label=ticker,
           value=f"${metrics['curr_price']:,.2f}",
@@ -99,8 +106,7 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
           f"- **Volume Fuel (RVOL):** {metrics['rvol']}x — {'Heavy Institutional Activity' if metrics['rvol'] >= 1.25 else 'Normal / Retail Trading'}\n"
           f"- **Speed & Energy (RSI):** {metrics['rsi_commentary']}\n"
           f"- **Direction (MACD):** {metrics['macd_commentary']}\n"
-          f"- **Safety Net (2x ATR Stop):** ${metrics.get('atr_stop', 0):,.2f} *(14-day expected daily swing: ±${metrics.get('atr_val', 0):,.2f})*\n"
-          f"- **52-Wk Range ({range_pct:.0f}%):** ${low_52:,.2f} – ${high_52:,.2f}"
+          f"- **52-Wk Position ({range_pct:.0f}%):** {range_status} *(${low_52:,.2f} – ${high_52:,.2f})*"
       )
 
       if metrics["cross_20_50"]:
