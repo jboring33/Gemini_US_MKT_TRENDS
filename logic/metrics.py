@@ -108,10 +108,7 @@ def evaluate_trend_and_action(df: pd.DataFrame) -> dict:
   elif sma_50_prev > sma_200_prev and sma_50 < sma_200:
     cross_50_200 = "⚠️ DEATH CROSS (50 < 200 SMA)"
 
-  # -------------------------------------------------------------------------
   # Matrix-Aligned Action Logic
-  # Core Actions: ACCUMULATE | HOLD | PAUSE BUYS | TRIM / DEFENSIVE
-  # -------------------------------------------------------------------------
   is_bull_trend = curr_price > sma_200 and sma_50 > sma_200
 
   if is_bull_trend:
@@ -173,7 +170,7 @@ def evaluate_trend_and_action(df: pd.DataFrame) -> dict:
 
 
 def create_interactive_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
-  """Generates 4-panel Plotly Chart with Volume, MACD, and RSI."""
+  """Generates clean 4-panel Plotly Chart with isolated, row-specific legends."""
   df = df.copy()
 
   df["SMA_20"] = df["Close"].rolling(20).mean()
@@ -201,13 +198,15 @@ def create_interactive_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
       rows=4,
       cols=1,
       shared_xaxes=True,
-      vertical_spacing=0.03,
+      vertical_spacing=0.04,
       row_heights=[0.45, 0.15, 0.20, 0.20],
       subplot_titles=(
-          f"{ticker} Price & SMAs (20/50/200)",
-          "Volume & 20-Day Avg (Institutional Threshold: >1.25x)",
-          "MACD (12, 26, 9)",
-          "RSI (14)",
+          f"<b>{ticker} Price & SMAs</b> (Orange: 20 SMA | Blue: 50 SMA |"
+          " Purple: 200 SMA)",
+          "<b>Volume</b> (Light Blue: 20-Day Avg Volume | Bright Color: High"
+          " RVOL ≥1.25x)",
+          "<b>MACD (12, 26, 9)</b> (Blue: MACD Line | Orange: Signal Line)",
+          "<b>RSI (14)</b> (Pink: 14-Period RSI Line)",
       ),
   )
 
@@ -220,6 +219,7 @@ def create_interactive_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
           low=df["Low"],
           close=df["Close"],
           name="Price",
+          showlegend=False,
       ),
       row=1,
       col=1,
@@ -230,6 +230,7 @@ def create_interactive_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
           y=df["SMA_20"],
           line=dict(color="#FFA500", width=1.5),
           name="20 SMA",
+          showlegend=False,
       ),
       row=1,
       col=1,
@@ -240,6 +241,7 @@ def create_interactive_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
           y=df["SMA_50"],
           line=dict(color="#1E90FF", width=1.5),
           name="50 SMA",
+          showlegend=False,
       ),
       row=1,
       col=1,
@@ -250,6 +252,7 @@ def create_interactive_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
           y=df["SMA_200"],
           line=dict(color="#8A2BE2", width=2),
           name="200 SMA",
+          showlegend=False,
       ),
       row=1,
       col=1,
@@ -265,7 +268,11 @@ def create_interactive_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
 
   fig.add_trace(
       go.Bar(
-          x=df.index, y=df["Volume"], marker_color=vol_colors, name="Volume"
+          x=df.index,
+          y=df["Volume"],
+          marker_color=vol_colors,
+          name="Volume",
+          showlegend=False,
       ),
       row=2,
       col=1,
@@ -275,7 +282,8 @@ def create_interactive_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
           x=df.index,
           y=df["Vol_SMA_20"],
           line=dict(color="#29B6F6", width=1.5, dash="dot"),
-          name="20-Day Vol Avg",
+          name="20D Vol Avg",
+          showlegend=False,
       ),
       row=2,
       col=1,
@@ -287,7 +295,8 @@ def create_interactive_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
           x=df.index,
           y=df["MACD"],
           line=dict(color="#1E90FF", width=1.5),
-          name="MACD Line",
+          name="MACD",
+          showlegend=False,
       ),
       row=3,
       col=1,
@@ -297,7 +306,8 @@ def create_interactive_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
           x=df.index,
           y=df["MACD_Signal"],
           line=dict(color="#FFA500", width=1.5),
-          name="Signal Line",
+          name="Signal",
+          showlegend=False,
       ),
       row=3,
       col=1,
@@ -307,7 +317,11 @@ def create_interactive_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
   ]
   fig.add_trace(
       go.Bar(
-          x=df.index, y=df["MACD_Hist"], marker_color=hist_colors, name="Hist"
+          x=df.index,
+          y=df["MACD_Hist"],
+          marker_color=hist_colors,
+          name="Histogram",
+          showlegend=False,
       ),
       row=3,
       col=1,
@@ -320,6 +334,7 @@ def create_interactive_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
           y=df["RSI"],
           line=dict(color="#D87093", width=1.5),
           name="RSI (14)",
+          showlegend=False,
       ),
       row=4,
       col=1,
@@ -331,6 +346,7 @@ def create_interactive_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
       row=4,
       col=1,
       annotation_text="Overbought (70)",
+      annotation_position="top right",
   )
   fig.add_hline(
       y=30,
@@ -339,14 +355,15 @@ def create_interactive_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
       row=4,
       col=1,
       annotation_text="Oversold (30)",
+      annotation_position="bottom right",
   )
 
   fig.update_layout(
       height=850,
       xaxis_rangeslider_visible=False,
       template="plotly_white",
-      showlegend=True,
-      margin=dict(l=20, r=20, t=40, b=20),
+      showlegend=False,  # Completely hides global top legend
+      margin=dict(l=20, r=20, t=30, b=20),
   )
 
   return fig
