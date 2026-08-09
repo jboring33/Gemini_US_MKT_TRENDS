@@ -2,9 +2,6 @@ from datetime import datetime
 import os
 import sys
 
-# -----------------------------------------------------------------------------
-# Absolute Path Resolution Fix for Streamlit Cloud
-# -----------------------------------------------------------------------------
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 import pandas as pd
@@ -12,7 +9,6 @@ import pytz
 import streamlit as st
 import yfinance as yf
 
-# Direct Settings Import to prevent ImportError
 import config.settings as settings
 from logic.macro_data import get_macro_risk_indicators
 from logic.metrics import (
@@ -21,9 +17,6 @@ from logic.metrics import (
     evaluate_trend_and_action,
 )
 
-# -----------------------------------------------------------------------------
-# Page Setup
-# -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="US Market Trends & Risk Dashboard",
     page_icon="🛡️",
@@ -33,14 +26,9 @@ st.set_page_config(
 TIMEZONE = pytz.timezone("US/Eastern")
 NOW = datetime.now(TIMEZONE)
 
-# -----------------------------------------------------------------------------
-# Data Engine
-# -----------------------------------------------------------------------------
-
 
 @st.cache_data(ttl=settings.CACHE_TTL)
 def load_market_data():
-  """Fetch 1-year historical data for SPY, DIA, QQQ, and VIX."""
   tickers = settings.PRIMARY_TICKERS + [settings.VOLATILITY_TICKER]
   data = {}
   for t in tickers:
@@ -56,7 +44,6 @@ def load_market_data():
 
 market_data = load_market_data()
 
-# Header
 st.title("🛡️ Moderate / Conservative Market Trend Dashboard")
 st.caption(
     f"Primary Benchmarks: **SPY, DIA, QQQ** | Last Updated:"
@@ -64,9 +51,10 @@ st.caption(
 )
 
 # -----------------------------------------------------------------------------
-# 1. Executive Summary & Action Signals
+# 1. Executive Summary & Quick Reference Matrix
 # -----------------------------------------------------------------------------
 st.subheader("1. Broad Market Guidance & Pricing")
+
 cols = st.columns(len(settings.PRIMARY_TICKERS))
 
 for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
@@ -79,7 +67,6 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
       change = metrics["curr_price"] - prev_price
       pct_change = (change / prev_price) * 100
 
-      # 52-Week Range
       low_52 = float(df["Low"].min())
       high_52 = float(df["High"].max())
       range_pct = (
@@ -94,28 +81,39 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
           delta=f"{change:+.2f} ({pct_change:+.2f}%)",
       )
 
-      # Action Badges
+      # Direct Matrix Action Badge
       if metrics["badge"] == "success":
-        st.success(metrics["action"])
+        st.success(f"**{metrics['action']}**")
       elif metrics["badge"] == "warning":
-        st.warning(metrics["action"])
+        st.warning(f"**{metrics['action']}**")
       elif metrics["badge"] == "info":
-        st.info(metrics["action"])
+        st.info(f"**{metrics['action']}**")
       else:
-        st.error(metrics["action"])
+        st.error(f"**{metrics['action']}**")
 
+      st.caption(f"**Reason:** {metrics['reason']}")
       st.caption(
           f"**52-Wk Range ({range_pct:.0f}%):** ${low_52:,.2f} – ${high_52:,.2f}"
       )
 
-      # Crossover Alerts
       if metrics["cross_20_50"]:
         st.info(metrics["cross_20_50"])
       if metrics["cross_50_200"]:
         st.warning(metrics["cross_50_200"])
 
+# Static Decision Matrix Reference Guide
+with st.expander("📖 Action Matrix Reference Guide", expanded=False):
+  st.markdown("""
+    | Dashboard Signal | Lump-Sum Buying | Routine DCA / Reinvesting | Existing Positions |
+    | :--- | :--- | :--- | :--- |
+    | **`ACCUMULATE`** | 🟢 **Green Light** (Buy Dips) | 🟢 **Green Light** | Add to Core / Hold |
+    | **`HOLD`** | 🟡 **Wait** (For Pullback/Volume) | 🟢 **Green Light** | Hold Core |
+    | **`PAUSE BUYS`** | 🔴 **Stop** (Overbought/Distribution) | 🟡 **Pause / Hold Cash** | Hold / Tighten Stops |
+    | **`TRIM / DEFENSIVE`** | 🔴 **Stop** | 🔴 **Pause** | Reduce Risk / Raise Cash |
+    """)
+
 # -----------------------------------------------------------------------------
-# 2. Interactive Technical Charts (Price, SMAs, MACD, RSI)
+# 2. Interactive Technical Charts
 # -----------------------------------------------------------------------------
 st.divider()
 st.subheader("2. Price Action & Volume Technical Charts")
@@ -132,7 +130,7 @@ for ticker, tab in tab_map.items():
       st.plotly_chart(fig, use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# 3. Volatility & Risk Profiling (VIX & ATR)
+# 3. Volatility & Risk Profiling
 # -----------------------------------------------------------------------------
 st.divider()
 st.subheader("3. Volatility & Position Risk Profiling")
