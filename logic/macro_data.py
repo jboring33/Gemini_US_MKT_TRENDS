@@ -1,58 +1,58 @@
-def get_macro_indicators() -> list[dict]:
-    """Returns static macro status cards matching the original dashboard."""
-    return [
-        {
-            "title": "1. FED BALANCE SHEET",
-            "status": "QT Ongoing",
-            "detail": "Continued balance sheet runoff strains systemic liquidity over time.",
-            "color": "red"
-        },
-        {
-            "title": "2. UNEMPLOYMENT RATE",
-            "status": "Stable (~4.1%)",
-            "detail": "Labor market shows gradual cooling without signaling immediate recession.",
-            "color": "yellow"
-        },
-        {
-            "title": "3. CPI & PCE INFLATION",
-            "status": "Moderating",
-            "detail": "Trending downward toward target, though sticky services remain.",
-            "color": "yellow"
-        },
-        {
-            "title": "4. YIELD CURVE (10Y-2Y)",
-            "status": "Un-inverting",
-            "detail": "Transitioning out of inversion; historically warrants late-cycle caution.",
-            "color": "yellow"
-        },
-        {
-            "title": "5. FED FUNDS RATE",
-            "status": "Restrictive Horizon",
-            "detail": "Rates remain elevated above neutral level to curb lingering inflation.",
-            "color": "red"
-        },
-        {
-            "title": "6. CONSUMER SENTIMENT",
-            "status": "Rangebound",
-            "detail": "Balanced between steady labor markets and higher cost of living.",
-            "color": "yellow"
-        },
-        {
-            "title": "7. US DOLLAR (DXY)",
-            "status": "Stable Range",
-            "detail": "Neutral impact on multinational corporate earnings performance.",
-            "color": "yellow"
-        },
-        {
-            "title": "8. HIGH YIELD SPREADS",
-            "status": "Tight (Low Stress)",
-            "detail": "Credit markets signal minimal immediate default risk or liquidity distress.",
-            "color": "green"
-        },
-        {
-            "title": "9. REAL GDP GROWTH",
-            "status": "Positive Expansion",
-            "detail": "Economic activity continues to support underlying corporate earnings.",
-            "color": "green"
-        }
-    ]
+def get_macro_risk_indicators() -> list[dict]:
+  """Macro economic and credit regime parameters."""
+  return [
+      {
+          "title": "Yield Curve (10Y - 2Y)",
+          "status": "Late-Cycle Un-Inversion",
+          "detail": (
+              "Curve un-inversion signals transitioning macro regime."
+              " Maintain conservative equity discipline."
+          ),
+          "color": "yellow",
+      },
+      {
+          "title": "High Yield Credit Spreads",
+          "status": "Tight Spreads (Low Stress)",
+          "detail": (
+              "Bond market pricing minimal systemic credit risk. Confirms equity"
+              " hold bias."
+          ),
+          "color": "green",
+      },
+      {
+          "title": "Real Yields (10Y TIPS)",
+          "status": "Elevated Real Cost of Capital",
+          "detail": (
+              "Restrictive real rates place valuation limits on mega-cap growth"
+              " multiples (QQQ factor)."
+          ),
+          "color": "yellow",
+      },
+      {
+          "title": "Fed Balance Sheet (QT)",
+          "status": "Quantitative Tightening Active",
+          "detail": (
+              "System liquidity drain favors cash-flow-rich dividend/value"
+              " assets over high-beta."
+          ),
+          "color": "red",
+      },
+      {
+          "title": "Labor & Unemployment",
+          "status": "Orderly Cooling (~4.1%)",
+          "detail": (
+              "Gradual cooling avoids immediate recessionary shock while"
+              " providing rate cut flexibility."
+          ),
+          "color": "green",
+      },
+      {
+          "title": "Core PCE Inflation",
+          "status": "Moderating Trajectory",
+          "detail": (
+              "Disinflation supports Federal Reserve policy easing, dampening"
+              " market tail risks."
+          ),
+          "color": "yellow",
+      },
+  ]
