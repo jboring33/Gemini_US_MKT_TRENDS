@@ -51,7 +51,7 @@ st.caption(
 )
 
 # -----------------------------------------------------------------------------
-# 1. Executive Summary & Quick Reference Matrix
+# 1. Executive Summary & Quick Reference Guides
 # -----------------------------------------------------------------------------
 st.subheader("1. Broad Market Guidance & Pricing")
 
@@ -93,6 +93,10 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
 
       st.caption(f"**Reason:** {metrics['reason']}")
       st.caption(
+          f"📊 **RSI:** {metrics['rsi_commentary']} | **MACD:**"
+          f" {metrics['macd_commentary']}"
+      )
+      st.caption(
           f"**52-Wk Range ({range_pct:.0f}%):** ${low_52:,.2f} – ${high_52:,.2f}"
       )
 
@@ -101,30 +105,39 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
       if metrics["cross_50_200"]:
         st.warning(metrics["cross_50_200"])
 
-# Static Decision Matrix & Relative Volume Reference Guides
-ref_col1, ref_col2 = st.columns(2)
+# Static Decision Matrix, RVOL, and Momentum Reference Guides
+ref_col1, ref_col2, ref_col3 = st.columns(3)
 
 with ref_col1:
-  with st.expander("📖 Action Matrix Reference Guide", expanded=False):
+  with st.expander("📖 Action Matrix Reference", expanded=False):
     st.markdown("""
-        | Dashboard Signal | Lump-Sum Buying | Routine DCA / Reinvesting | Existing Positions |
-        | :--- | :--- | :--- | :--- |
-        | **`ACCUMULATE`** | 🟢 **Green Light** (Buy Dips) | 🟢 **Green Light** | Add to Core / Hold |
-        | **`HOLD`** | 🟡 **Wait** (For Pullback/Volume) | 🟢 **Green Light** | Hold Core |
-        | **`PAUSE BUYS`** | 🔴 **Stop** (Overbought/Distribution) | 🟡 **Pause / Hold Cash** | Hold / Tighten Stops |
-        | **`TRIM / DEFENSIVE`** | 🔴 **Stop** | 🔴 **Pause** | Reduce Risk / Raise Cash |
+        | Dashboard Signal | Lump-Sum | Routine DCA |
+        | :--- | :--- | :--- |
+        | **`ACCUMULATE`** | 🟢 **Buy Dips** | 🟢 **Green Light** |
+        | **`HOLD`** | 🟡 **Wait** | 🟢 **Green Light** |
+        | **`PAUSE BUYS`** | 🔴 **Stop** | 🟡 **Pause / Cash** |
+        | **`TRIM / DEFENSIVE`** | 🔴 **Stop** | 🔴 **Pause** |
         """)
 
 with ref_col2:
-  with st.expander("📊 Relative Volume (RVOL) Reference Guide", expanded=False):
+  with st.expander("📊 Relative Volume (RVOL) Guide", expanded=False):
     st.markdown("""
-        **Formula:** $\\text{RVOL} = \\frac{\\text{Current Volume}}{\\text{20-Day Average Volume}}$
-        
-        | RVOL Level | Institutional Interpretation | Action Guidance |
+        | RVOL Level | Institutional Meaning | Action |
         | :--- | :--- | :--- |
-        | **$\ge$ 1.25x** | 🏦 **Institutional Surge** | Validates major breakouts or dip buying support. High confidence. |
-        | **0.85x – 1.24x** | ⚖️ **Normal Participation** | Standard market conditions; steady trend progression. |
-        | **$<$ 0.85x** | ⚠️ **Weak Volume / Retail Churn** | Move lacks big fund support. Vulnerable to sudden reversals. |
+        | **$\ge$ 1.25x** | 🏦 **Institutional Surge** | Confirms breakouts/dips. |
+        | **0.85x – 1.24x** | ⚖️ **Normal Volume** | Standard trend movement. |
+        | **$<$ 0.85x** | ⚠️ **Retail Churn** | Weak fuel; prone to reversals. |
+        """)
+
+with ref_col3:
+  with st.expander("📈 RSI & MACD Momentum Guide", expanded=False):
+    st.markdown("""
+        | Indicator | Reading / Signal | Tactical Meaning |
+        | :--- | :--- | :--- |
+        | **RSI (14)** | **$\ge$ 70** | **Overbought:** Pause new lump-sum buys. |
+        | **RSI (14)** | **$\le$ 30** | **Oversold:** Potential deep value entry. |
+        | **MACD** | **Line $>$ Signal** | **Bullish Momentum:** Upward momentum intact. |
+        | **MACD** | **Bull Crossover** | **Buy Signal:** Line crosses above signal line. |
         """)
 
 # -----------------------------------------------------------------------------
