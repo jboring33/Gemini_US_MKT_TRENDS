@@ -5,7 +5,7 @@ from plotly.subplots import make_subplots
 
 
 def calculate_rsi(prices: pd.Series, period: int = 14) -> float:
-  """Calculate standard 14-period RSI."""
+  """Calculate standard 14-period Relative Strength Index (RSI)."""
   delta = prices.diff()
   gain = delta.where(delta > 0, 0.0)
   loss = -delta.where(delta < 0, 0.0)
@@ -40,7 +40,10 @@ def calculate_atr(df: pd.DataFrame, period: int = 14) -> dict:
 
 
 def evaluate_trend_and_action(df: pd.DataFrame) -> dict:
-  """Multi-indicator rule engine outputting Matrix-Aligned Actions & Reasons."""
+  """Multi-indicator rule engine combining Price Action, SMAs, RVOL, RSI, and MACD.
+
+  Outputs Matrix-Aligned Actions & Reasons for the dashboard.
+  """
   prices = df["Close"]
   volumes = df["Volume"]
   curr_price = float(prices.iloc[-1])
@@ -170,7 +173,7 @@ def evaluate_trend_and_action(df: pd.DataFrame) -> dict:
 
 
 def create_interactive_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
-  """Generates clean 4-panel Plotly Chart with isolated, row-specific legends."""
+  """Generates clean 4-panel Plotly Chart with isolated, row-specific headers."""
   df = df.copy()
 
   df["SMA_20"] = df["Close"].rolling(20).mean()
@@ -201,8 +204,8 @@ def create_interactive_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
       vertical_spacing=0.04,
       row_heights=[0.45, 0.15, 0.20, 0.20],
       subplot_titles=(
-          f"<b>{ticker} Price & SMAs</b> (Orange: 20 SMA | Blue: 50 SMA |"
-          " Purple: 200 SMA)",
+          f"<b>{ticker} Price & SMAs</b> (Red: 20 SMA | Yellow: 50 SMA |"
+          " Green: 200 SMA)",
           "<b>Volume</b> (Light Blue: 20-Day Avg Volume | Bright Color: High"
           " RVOL ≥1.25x)",
           "<b>MACD (12, 26, 9)</b> (Blue: MACD Line | Orange: Signal Line)",
@@ -224,33 +227,39 @@ def create_interactive_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
       row=1,
       col=1,
   )
+
+  # 20 SMA -> Red
   fig.add_trace(
       go.Scatter(
           x=df.index,
           y=df["SMA_20"],
-          line=dict(color="#FFA500", width=1.5),
+          line=dict(color="#FF1744", width=1.5),
           name="20 SMA",
           showlegend=False,
       ),
       row=1,
       col=1,
   )
+
+  # 50 SMA -> Yellow
   fig.add_trace(
       go.Scatter(
           x=df.index,
           y=df["SMA_50"],
-          line=dict(color="#1E90FF", width=1.5),
+          line=dict(color="#FFD600", width=1.5),
           name="50 SMA",
           showlegend=False,
       ),
       row=1,
       col=1,
   )
+
+  # 200 SMA -> Green
   fig.add_trace(
       go.Scatter(
           x=df.index,
           y=df["SMA_200"],
-          line=dict(color="#8A2BE2", width=2),
+          line=dict(color="#00E676", width=2.0),
           name="200 SMA",
           showlegend=False,
       ),
@@ -362,7 +371,7 @@ def create_interactive_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
       height=850,
       xaxis_rangeslider_visible=False,
       template="plotly_white",
-      showlegend=False,  # Completely hides global top legend
+      showlegend=False,
       margin=dict(l=20, r=20, t=30, b=20),
   )
 
