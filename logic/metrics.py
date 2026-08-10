@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 def create_interactive_chart(df, ticker):
   fig = go.Figure()
 
-  # Native Hollow Candlestick Chart Setup
+  # True Hollow Candlestick Traces
   fig.add_trace(
       go.Candlestick(
           x=df.index,
@@ -13,12 +13,12 @@ def create_interactive_chart(df, ticker):
           low=df["Low"],
           close=df["Close"],
           name=f"{ticker} Price",
-          # Up Days (Close > Open): Green outline, hollow/transparent center
+          # Bullish Days (Close > Open): Green stroke line with hollow fill
           increasing=dict(
               line=dict(color="#26a69a", width=1.5),
               fillcolor="rgba(0,0,0,0)",
           ),
-          # Down Days (Close < Open): Red outline, solid red center
+          # Bearish Days (Close < Open): Red stroke line with solid red fill
           decreasing=dict(
               line=dict(color="#ef5350", width=1.5), fillcolor="#ef5350"
           ),
@@ -54,13 +54,23 @@ def create_interactive_chart(df, ticker):
         )
     )
 
+  # Explicit Layout Config to enable Smooth Zoom and Pan
   fig.update_layout(
       title=f"{ticker} Technical Chart",
       yaxis_title="Price ($)",
       xaxis_rangeslider_visible=False,
       template="plotly_white",
-      height=500,
+      height=550,
       margin=dict(l=20, r=20, t=40, b=20),
+      dragmode="zoom",  # Enables box/scroll zoom by default
+      hovermode="x unified",
+      xaxis=dict(
+          fixedrange=False,
+          type="date",
+      ),
+      yaxis=dict(
+          fixedrange=False,
+      ),
   )
 
   return fig
