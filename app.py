@@ -33,21 +33,31 @@ def load_market_data():
   )
   data = {}
   try:
+    # Fetch all tickers in a single batch request
     df_batch = yf.download(
         tickers, period="1y", group_by="ticker", progress=False
     )
-    for t in tickers:
-      if len(tickers) == 1:
-        df_t = df_batch.copy()
-      else:
-        df_t = (
-            df_batch[t].dropna() if t in df_batch.columns.levels[0] else None
-        )
 
-      if df_t is not None and not df_t.empty and len(df_t) >= 200:
-        if isinstance(df_t.columns, pd.MultiIndex):
-          df_t.columns = df_t.columns.get_level_values(0)
-        data[t] = df_t
+    for t in tickers:
+      try:
+        # Robust ticker extraction for multi-index vs single-index DataFrames
+        if (
+            isinstance(df_batch.columns, pd.MultiIndex)
+            and t in df_batch.columns.levels[0]
+        ):
+          df_t = df_batch[t].copy().dropna(how="all")
+        elif not isinstance(df_batch.columns, pd.MultiIndex):
+          df_t = df_batch.copy().dropna(how="all")
+        else:
+          df_t = None
+
+        if df_t is not None and not df_t.empty and len(df_t) >= 100:
+          # Flatten multi-index columns if present
+          if isinstance(df_t.columns, pd.MultiIndex):
+            df_t.columns = df_t.columns.get_level_values(0)
+          data[t] = df_t
+      except Exception:
+        continue
   except Exception as e:
     st.error(f"Error fetching market data: {e}")
   return data
@@ -103,7 +113,7 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
         st.error(f"**{metrics['action']}**")
 
       # -----------------------------------------------------------------------
-      # Color-Coded Factors (Strictly 4 Core Factors in Section 1)
+      # Color-Coded Factors (Strictly 4 Core Factors Here)
       # -----------------------------------------------------------------------
       # 1. Big Picture Trend
       if metrics.get("above_200", False):
@@ -152,15 +162,15 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
       else:
         b4 = "🔴 **Direction (MACD):** Bearish (Momentum slowing / downward)"
 
-      # Render strictly the 4 factors in the main card text
+      # Render ONLY the 4 main factors (no 52-week here)
       st.markdown(f"{b1}\n\n{b2}\n\n{b3}\n\n{b4}")
 
-      # Separate Dedicated Card for 52-Week Range
+      # Dedicated Card Block for 52-Week Position
       with st.container(border=True):
         if range_pct >= 85:
           st.markdown(
-              f"🔴 **52-Wk Position ({range_pct:.0f}%):** Near Highs (Pullback"
-              " Risk)"
+              f"🔴 **52-Wk Position ({range_pct:.0f}%):** Extended Near Highs"
+              " (Pullback Risk)"
           )
         elif range_pct <= 20:
           st.markdown(
@@ -177,8 +187,10 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
         st.info(metrics["cross_20_50"])
       if metrics["cross_50_200"]:
         st.warning(metrics["cross_50_200"])
+    else:
+      st.error(f"Unable to load data for {ticker}")
 
-# Static Reference Guides (4 Grid Layout)
+# Static Reference Guides
 ref_col1, ref_col2, ref_col3, ref_col4 = st.columns(4)
 
 with ref_col1:
@@ -248,6 +260,8 @@ for ticker, tab in tab_map.items():
               "displaylogo": False,
           },
       )
+    else:
+      st.warning(f"No chart data available for {ticker}")
 
 # -----------------------------------------------------------------------------
 # 3. Economic & Macro Risk Cards
