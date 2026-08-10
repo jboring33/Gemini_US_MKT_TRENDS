@@ -33,13 +33,10 @@ def load_market_data():
   )
   data = {}
   try:
-    # Batch fetch all tickers in a single request
     df_batch = yf.download(
         tickers, period="1y", group_by="ticker", progress=False
     )
-
     for t in tickers:
-      # Extract individual ticker dataframe from batch result
       if len(tickers) == 1:
         df_t = df_batch.copy()
       else:
@@ -48,14 +45,11 @@ def load_market_data():
         )
 
       if df_t is not None and not df_t.empty and len(df_t) >= 200:
-        # Standardize column structure if needed
         if isinstance(df_t.columns, pd.MultiIndex):
           df_t.columns = df_t.columns.get_level_values(0)
         data[t] = df_t
-
   except Exception as e:
     st.error(f"Error fetching market data: {e}")
-
   return data
 
 
@@ -109,124 +103,82 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
         st.error(f"**{metrics['action']}**")
 
       # -----------------------------------------------------------------------
-      # Color-Coded Factor Evaluation
+      # Color-Coded Factors (Fixed Order: Big Picture, Volume, Speed, Direction, 52-Wk)
       # -----------------------------------------------------------------------
-      # 1. Trend Factor
+      # 1. Big Picture Trend
       if metrics.get("above_200", False):
-        trend_bullet = (
-            "🟢 **Big Picture Trend:** Bullish (Above long-term 200 SMA)"
-        )
+        b1 = "🟢 **Big Picture Trend:** Bullish (Above long-term 200 SMA)"
       else:
-        trend_bullet = (
-            "🔴 **Big Picture Trend:** Bearish (Below long-term 200 SMA)"
-        )
+        b1 = "🔴 **Big Picture Trend:** Bearish (Below long-term 200 SMA)"
 
-      # 2. Volume Fuel Factor (RVOL)
+      # 2. Volume Fuel (RVOL)
       rvol_val = metrics.get("rvol", 1.0)
       if rvol_val >= 1.25:
-        rvol_bullet = (
+        b2 = (
             f"🟢 **Volume Fuel (RVOL):** {rvol_val}x — High Institutional"
             " Conviction"
         )
       elif rvol_val >= 0.85:
-        rvol_bullet = (
-            f"⚪ **Volume Fuel (RVOL):** {rvol_val}x — Normal Trading Volume"
-        )
+        b2 = f"⚪ **Volume Fuel (RVOL):** {rvol_val}x — Normal Trading Volume"
       else:
-        rvol_bullet = (
+        b2 = (
             f"🟡 **Volume Fuel (RVOL):** {rvol_val}x — Low Volume / Retail"
             " Churn"
         )
 
-      # 3. Speed & Energy Factor (RSI)
+      # 3. Speed & Energy (RSI)
       rsi_val = metrics.get("rsi", 50)
       if rsi_val >= 70:
-        rsi_bullet = (
+        b3 = (
             f"🔴 **Speed & Energy (RSI {rsi_val}):** Overbought (Extended /"
             " Pullback Risk)"
         )
       elif rsi_val <= 30:
-        rsi_bullet = (
+        b3 = (
             f"🟢 **Speed & Energy (RSI {rsi_val}):** Oversold (Potential Dip"
             " Value Entry)"
         )
       elif rsi_val >= 50:
-        rsi_bullet = (
+        b3 = (
             f"🟢 **Speed & Energy (RSI {rsi_val}):** Positive Bullish"
             " Momentum"
         )
       else:
-        rsi_bullet = (
-            f"🟡 **Speed & Energy (RSI {rsi_val}):** Neutral to Weak Momentum"
-        )
+        b3 = f"🟡 **Speed & Energy (RSI {rsi_val}):** Neutral to Weak Momentum"
 
-      # 4. Direction Factor (MACD)
+      # 4. Direction (MACD)
       if metrics.get("macd_bullish", False):
-        macd_bullet = (
-            "🟢 **Direction (MACD):** Bullish (Momentum moving upward)"
-        )
+        b4 = "🟢 **Direction (MACD):** Bullish (Momentum moving upward)"
       else:
-        macd_bullet = (
-            "🔴 **Direction (MACD):** Bearish (Momentum slowing / downward)"
-        )
+        b4 = "🔴 **Direction (MACD):** Bearish (Momentum slowing / downward)"
 
-      # 5. 52-Week Position Factor
+      # 5. 52-Week Position
       if range_pct >= 85:
-        range_bullet = (
+        b5 = (
             f"🔴 **52-Wk Position ({range_pct:.0f}%):** Extended Near Highs"
             f" (Pullback Risk) *(Low: ${low_52:,.2f} | High: ${high_52:,.2f})*"
         )
       elif range_pct <= 20:
-        range_bullet = (
-            f"🟢 **52-Wk Position ({range_pct:.0f}%):** Near 52-Wk Lows"
-            f" (Value Zone) *(Low: ${low_52:,.2f} | High: ${high_52:,.2f})*"
+        b5 = (
+            f"🟢 **52-Wk Position ({range_pct:.0f}%):** Near 52-Wk Lows (Value"
+            f" Zone) *(Low: ${low_52:,.2f} | High: ${high_52:,.2f})*"
         )
       else:
-        range_bullet = (
+        b5 = (
             f"⚪ **52-Wk Position ({range_pct:.0f}%):** Mid-Range"
             f" Consolidation *(Low: ${low_52:,.2f} | High: ${high_52:,.2f})*"
         )
 
-      # Map factors to pull primary driver to the top
-      factor_map = {
-          "trend": trend_bullet,
-          "rvol": rvol_bullet,
-          "rsi": rsi_bullet,
-          "macd": macd_bullet,
-          "range": range_bullet,
-      }
-
-      # Determine primary key from reason string
-      reason_str = str(metrics.get("reason", "")).lower()
-      if "200" in reason_str or "trend" in reason_str:
-        primary_key = "trend"
-      elif "rsi" in reason_str or "overbought" in reason_str or "oversold" in reason_str:
-        primary_key = "rsi"
-      elif "macd" in reason_str:
-        primary_key = "macd"
-      elif "rvol" in reason_str or "volume" in reason_str:
-        primary_key = "rvol"
-      elif "52" in reason_str or "high" in reason_str or "low" in reason_str:
-        primary_key = "range"
-      else:
-        primary_key = "trend"
-
-      # Re-order list so Primary Driver is FIRST
-      ordered_bullets = [factor_map[primary_key]] + [
-          b for k, b in factor_map.items() if k != primary_key
-      ]
-
-      st.markdown(f"**Primary Driver:** {metrics['reason']}")
-      for bullet in ordered_bullets:
-        st.markdown(f"- {bullet}")
+      # Render lines using emoji bullets directly
+      st.markdown(f"{b1}\n\n{b2}\n\n{b3}\n\n{b4}\n\n{b5}")
 
       if metrics["cross_20_50"]:
         st.info(metrics["cross_20_50"])
       if metrics["cross_50_200"]:
         st.warning(metrics["cross_50_200"])
 
-# Static Decision Matrix, RVOL, and Momentum Reference Guides
-ref_col1, ref_col2, ref_col3 = st.columns(3)
+# Static Reference Guides (4 Column Layout)
+ref_col1, ref_col2, ref_col3, ref_col4 = st.columns(4)
 
 with ref_col1:
   with st.expander("📖 Action Matrix Reference", expanded=False):
@@ -258,6 +210,17 @@ with ref_col3:
         | **RSI (14)** | **$\le$ 30** | **Oversold:** Potential deep value entry. |
         | **MACD** | **Line $>$ Signal** | **Bullish Momentum:** Upward momentum intact. |
         | **MACD** | **Bull Crossover** | **Buy Signal:** Line crosses above signal line. |
+        """)
+
+with ref_col4:
+  with st.expander("🕯️ Candlestick Guide", expanded=False):
+    st.markdown("""
+        | Candle Style | Intraday Movement | Price vs. Yesterday |
+        | :--- | :--- | :--- |
+        | 🟩 **Hollow Green** | **Bullish** (Close $>$ Open) | **Higher** than prev close |
+        | 🔴 **Solid Red** | **Bearish** (Close $<$ Open) | **Lower** than prev close |
+        | 🟩 **Solid Green** | **Bearish** (Close $<$ Open) | **Higher** than prev close |
+        | 🔴 **Hollow Red** | **Bullish** (Close $>$ Open) | **Lower** than prev close |
         """)
 
 # -----------------------------------------------------------------------------
