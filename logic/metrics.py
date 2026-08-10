@@ -1,10 +1,11 @@
+import pandas as pd
 import plotly.graph_objects as go
 
 
 def create_interactive_chart(df, ticker):
   fig = go.Figure()
 
-  # Force Hollow Candlesticks via explicit Plotly trace syntax
+  # Clean, reliable Hollow Candlestick styling
   fig.add_trace(
       go.Candlestick(
           x=df.index,
@@ -13,10 +14,14 @@ def create_interactive_chart(df, ticker):
           low=df["Low"],
           close=df["Close"],
           name=f"{ticker} Price",
-          increasing_line_color="#26a69a",
-          increasing_fillcolor="white",  # Forces interior hollow appearance
-          decreasing_line_color="#ef5350",
-          decreasing_fillcolor="#ef5350",  # Solid red
+          increasing=dict(
+              line=dict(color="#26a69a", width=1.5),
+              fillcolor="rgba(255,255,255,0)",  # Transparent fill for hollow green
+          ),
+          decreasing=dict(
+              line=dict(color="#ef5350", width=1.5),
+              fillcolor="#ef5350",  # Solid fill for down red
+          ),
       )
   )
 
@@ -49,7 +54,6 @@ def create_interactive_chart(df, ticker):
         )
     )
 
-  # Explicit Layout settings to force pan and box zoom enabled
   fig.update_layout(
       title=f"{ticker} Technical Chart",
       yaxis_title="Price ($)",
@@ -61,7 +65,6 @@ def create_interactive_chart(df, ticker):
       hovermode="x unified",
   )
 
-  # Allow free zooming across both X and Y axes
   fig.update_xaxes(fixedrange=False)
   fig.update_yaxes(fixedrange=False)
 
@@ -70,6 +73,11 @@ def create_interactive_chart(df, ticker):
 
 def evaluate_trend_and_action(df):
   """Evaluates market data and returns dictionary of metrics & signals."""
+  # Ensure clean numeric columns
+  for col in ["Open", "High", "Low", "Close", "Volume"]:
+    if col in df.columns:
+      df[col] = pd.to_numeric(df[col], errors="coerce")
+
   # Calculate moving averages
   df["SMA_20"] = df["Close"].rolling(20).mean()
   df["SMA_50"] = df["Close"].rolling(50).mean()
@@ -100,8 +108,15 @@ def evaluate_trend_and_action(df):
   )
 
   curr_price = float(df["Close"].iloc[-1])
-  above_200 = curr_price > float(df["SMA_200"].iloc[-1])
-  curr_rsi = float(df["RSI"].iloc[-1])
+  sma200_val = (
+      float(df["SMA_200"].iloc[-1])
+      if not pd.isna(df["SMA_200"].iloc[-1])
+      else curr_price
+  )
+  above_200 = curr_price > sma200_val
+  curr_rsi = (
+      float(df["RSI"].iloc[-1]) if not pd.isna(df["RSI"].iloc[-1]) else 50.0
+  )
   macd_bullish = float(df["MACD"].iloc[-1]) > float(df["MACD_Signal"].iloc[-1])
 
   # Crossover Detections
