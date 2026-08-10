@@ -103,7 +103,7 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
         st.error(f"**{metrics['action']}**")
 
       # -----------------------------------------------------------------------
-      # Color-Coded Factors (Fixed Order: Big Picture, Volume, Speed, Direction, 52-Wk)
+      # Color-Coded Factors (4 Core Indicators)
       # -----------------------------------------------------------------------
       # 1. Big Picture Trend
       if metrics.get("above_200", False):
@@ -152,32 +152,33 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
       else:
         b4 = "🔴 **Direction (MACD):** Bearish (Momentum slowing / downward)"
 
-      # 5. 52-Week Position
-      if range_pct >= 85:
-        b5 = (
-            f"🔴 **52-Wk Position ({range_pct:.0f}%):** Extended Near Highs"
-            f" (Pullback Risk) *(Low: ${low_52:,.2f} | High: ${high_52:,.2f})*"
-        )
-      elif range_pct <= 20:
-        b5 = (
-            f"🟢 **52-Wk Position ({range_pct:.0f}%):** Near 52-Wk Lows (Value"
-            f" Zone) *(Low: ${low_52:,.2f} | High: ${high_52:,.2f})*"
-        )
-      else:
-        b5 = (
-            f"⚪ **52-Wk Position ({range_pct:.0f}%):** Mid-Range"
-            f" Consolidation *(Low: ${low_52:,.2f} | High: ${high_52:,.2f})*"
-        )
+      # Render 4 Core Factors directly
+      st.markdown(f"{b1}\n\n{b2}\n\n{b3}\n\n{b4}")
 
-      # Render lines using emoji bullets directly
-      st.markdown(f"{b1}\n\n{b2}\n\n{b3}\n\n{b4}\n\n{b5}")
+      # Dedicated 52-Week Position Summary Card
+      with st.container(border=True):
+        if range_pct >= 85:
+          st.markdown(
+              f"🔴 **52-Wk Position ({range_pct:.0f}%):** Extended Near Highs"
+              " (Pullback Risk)"
+          )
+        elif range_pct <= 20:
+          st.markdown(
+              f"🟢 **52-Wk Position ({range_pct:.0f}%):** Near Lows (Value Zone)"
+          )
+        else:
+          st.markdown(
+              f"⚪ **52-Wk Position ({range_pct:.0f}%):** Mid-Range"
+              " Consolidation"
+          )
+        st.caption(f"**Low:** ${low_52:,.2f}  |  **High:** ${high_52:,.2f}")
 
       if metrics["cross_20_50"]:
         st.info(metrics["cross_20_50"])
       if metrics["cross_50_200"]:
         st.warning(metrics["cross_50_200"])
 
-# Static Reference Guides (4 Column Layout)
+# Static Reference Guides (4 Grid Layout)
 ref_col1, ref_col2, ref_col3, ref_col4 = st.columns(4)
 
 with ref_col1:
@@ -238,7 +239,19 @@ for ticker, tab in tab_map.items():
   with tab:
     if ticker in market_data:
       fig = create_interactive_chart(market_data[ticker], ticker)
-      st.plotly_chart(fig, use_container_width=True)
+      st.plotly_chart(
+          fig,
+          use_container_width=True,
+          config={
+              "scrollZoom": True,
+              "displayModeBar": True,
+              "modeBarButtonsToAdd": [
+                  "drawline",
+                  "drawopenpath",
+                  "eraseshape",
+              ],
+          },
+      )
 
 # -----------------------------------------------------------------------------
 # 3. Economic & Macro Risk Cards
