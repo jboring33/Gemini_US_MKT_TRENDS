@@ -103,7 +103,7 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
         st.error(f"**{metrics['action']}**")
 
       # -----------------------------------------------------------------------
-      # Color-Coded Factors (4 Core Indicators)
+      # Color-Coded Factors (Strictly 4 Core Factors in Section 1)
       # -----------------------------------------------------------------------
       # 1. Big Picture Trend
       if metrics.get("above_200", False):
@@ -152,15 +152,15 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
       else:
         b4 = "🔴 **Direction (MACD):** Bearish (Momentum slowing / downward)"
 
-      # Render 4 Core Factors directly
+      # Render strictly the 4 factors in the main card text
       st.markdown(f"{b1}\n\n{b2}\n\n{b3}\n\n{b4}")
 
-      # Dedicated 52-Week Position Summary Card
+      # Separate Dedicated Card for 52-Week Range
       with st.container(border=True):
         if range_pct >= 85:
           st.markdown(
-              f"🔴 **52-Wk Position ({range_pct:.0f}%):** Extended Near Highs"
-              " (Pullback Risk)"
+              f"🔴 **52-Wk Position ({range_pct:.0f}%):** Near Highs (Pullback"
+              " Risk)"
           )
         elif range_pct <= 20:
           st.markdown(
@@ -171,7 +171,7 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
               f"⚪ **52-Wk Position ({range_pct:.0f}%):** Mid-Range"
               " Consolidation"
           )
-        st.caption(f"**Low:** ${low_52:,.2f}  |  **High:** ${high_52:,.2f}")
+        st.caption(f"**Low:** ${low_52:,.2f} | **High:** ${high_52:,.2f}")
 
       if metrics["cross_20_50"]:
         st.info(metrics["cross_20_50"])
@@ -245,11 +245,7 @@ for ticker, tab in tab_map.items():
           config={
               "scrollZoom": True,
               "displayModeBar": True,
-              "modeBarButtonsToAdd": [
-                  "drawline",
-                  "drawopenpath",
-                  "eraseshape",
-              ],
+              "displaylogo": False,
           },
       )
 
