@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 def create_interactive_chart(df, ticker):
   fig = go.Figure()
 
-  # True Hollow Candlestick Traces
+  # Force Hollow Candlesticks via explicit Plotly trace syntax
   fig.add_trace(
       go.Candlestick(
           x=df.index,
@@ -13,15 +13,10 @@ def create_interactive_chart(df, ticker):
           low=df["Low"],
           close=df["Close"],
           name=f"{ticker} Price",
-          # Bullish Days (Close > Open): Green stroke line with hollow fill
-          increasing=dict(
-              line=dict(color="#26a69a", width=1.5),
-              fillcolor="rgba(0,0,0,0)",
-          ),
-          # Bearish Days (Close < Open): Red stroke line with solid red fill
-          decreasing=dict(
-              line=dict(color="#ef5350", width=1.5), fillcolor="#ef5350"
-          ),
+          increasing_line_color="#26a69a",
+          increasing_fillcolor="white",  # Forces interior hollow appearance
+          decreasing_line_color="#ef5350",
+          decreasing_fillcolor="#ef5350",  # Solid red
       )
   )
 
@@ -32,7 +27,7 @@ def create_interactive_chart(df, ticker):
             x=df.index,
             y=df["SMA_20"],
             name="20 SMA",
-            line=dict(color="orange", width=1),
+            line=dict(color="orange", width=1.5),
         )
     )
   if "SMA_50" in df.columns:
@@ -41,7 +36,7 @@ def create_interactive_chart(df, ticker):
             x=df.index,
             y=df["SMA_50"],
             name="50 SMA",
-            line=dict(color="blue", width=1),
+            line=dict(color="blue", width=1.5),
         )
     )
   if "SMA_200" in df.columns:
@@ -50,11 +45,11 @@ def create_interactive_chart(df, ticker):
             x=df.index,
             y=df["SMA_200"],
             name="200 SMA",
-            line=dict(color="black", width=1.5),
+            line=dict(color="black", width=2),
         )
     )
 
-  # Explicit Layout Config to enable Smooth Zoom and Pan
+  # Explicit Layout settings to force pan and box zoom enabled
   fig.update_layout(
       title=f"{ticker} Technical Chart",
       yaxis_title="Price ($)",
@@ -62,16 +57,13 @@ def create_interactive_chart(df, ticker):
       template="plotly_white",
       height=550,
       margin=dict(l=20, r=20, t=40, b=20),
-      dragmode="zoom",  # Enables box/scroll zoom by default
+      dragmode="zoom",
       hovermode="x unified",
-      xaxis=dict(
-          fixedrange=False,
-          type="date",
-      ),
-      yaxis=dict(
-          fixedrange=False,
-      ),
   )
+
+  # Allow free zooming across both X and Y axes
+  fig.update_xaxes(fixedrange=False)
+  fig.update_yaxes(fixedrange=False)
 
   return fig
 
@@ -101,14 +93,16 @@ def evaluate_trend_and_action(df):
 
   # Calculate RVOL (20-day baseline)
   vol_20_sma = df["Volume"].rolling(20).mean()
-  rvol = df["Volume"].iloc[-1] / vol_20_sma.iloc[-1] if vol_20_sma.iloc[-1] > 0 else 1.0
+  rvol = (
+      df["Volume"].iloc[-1] / vol_20_sma.iloc[-1]
+      if vol_20_sma.iloc[-1] > 0
+      else 1.0
+  )
 
   curr_price = float(df["Close"].iloc[-1])
   above_200 = curr_price > float(df["SMA_200"].iloc[-1])
   curr_rsi = float(df["RSI"].iloc[-1])
-  macd_bullish = float(df["MACD"].iloc[-1]) > float(
-      df["MACD_Signal"].iloc[-1]
-  )
+  macd_bullish = float(df["MACD"].iloc[-1]) > float(df["MACD_Signal"].iloc[-1])
 
   # Crossover Detections
   cross_20_50 = None
@@ -144,8 +138,9 @@ def evaluate_trend_and_action(df):
     action = "HOLD"
     badge = "info"
     reason = (
-        "Trend Intact (RVOL"
-        f" {rvol:.1f}x)" if rvol >= 0.85 else f"Low Volume / Retail Churn (RVOL {rvol:.1f}x)"
+        f"Trend Intact (RVOL {rvol:.1f}x)"
+        if rvol >= 0.85
+        else f"Low Volume / Retail Churn (RVOL {rvol:.1f}x)"
     )
   elif not above_200 and macd_bullish:
     action = "PAUSE BUYS"
