@@ -28,16 +28,34 @@ NOW = datetime.now(TIMEZONE)
 
 @st.cache_data(ttl=settings.CACHE_TTL)
 def load_market_data():
-  tickers = settings.PRIMARY_TICKERS + [settings.VOLATILITY_TICKER]
+  tickers = list(
+      set(settings.PRIMARY_TICKERS + [settings.VOLATILITY_TICKER])
+  )
   data = {}
-  for t in tickers:
-    try:
-      tk = yf.Ticker(t)
-      df = tk.history(period="1y")
-      if not df.empty and len(df) >= 200:
-        data[t] = df
-    except Exception as e:
-      st.error(f"Error loading ticker {t}: {e}")
+  try:
+    # Batch fetch all tickers in a single request
+    df_batch = yf.download(
+        tickers, period="1y", group_by="ticker", progress=False
+    )
+
+    for t in tickers:
+      # Extract individual ticker dataframe from batch result
+      if len(tickers) == 1:
+        df_t = df_batch.copy()
+      else:
+        df_t = (
+            df_batch[t].dropna() if t in df_batch.columns.levels[0] else None
+        )
+
+      if df_t is not None and not df_t.empty and len(df_t) >= 200:
+        # Standardize column structure if needed
+        if isinstance(df_t.columns, pd.MultiIndex):
+          df_t.columns = df_t.columns.get_level_values(0)
+        data[t] = df_t
+
+  except Exception as e:
+    st.error(f"Error fetching market data: {e}")
+
   return data
 
 
