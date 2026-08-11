@@ -22,85 +22,107 @@ st.set_page_config(
 TIMEZONE = pytz.timezone("US/Eastern")
 NOW = datetime.now(TIMEZONE)
 
+# Persistent session state memory for fallback when network fails
+if "cached_market_data" not in st.session_state:
+  st.session_state["cached_market_data"] = {}
+
 
 @st.cache_data(ttl=settings.CACHE_TTL)
-def load_market_data():
-  """Downloads all primary market tickers in a single batched request
+def fetch_ticker_data(ticker: str) -> pd.DataFrame:
+  """Attempts to download an individual ticker with clean MultiIndex flattening."""
+  try:
+    df = yf.download(ticker, period="1y", progress=False)
+    if df is not None and not df.empty:
+      if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+      df = df.dropna(how="all")
+      if len(df) >= 30:
+        return df
+  except Exception:
+    pass
+  return pd.DataFrame()
 
-  with exhaustive multi-index parsing to prevent single-ticker dropouts.
+
+def load_market_data():
+  """Resilient loader: Batches first, falls back to direct fetches,
+
+  and defaults to session cache if all network attempts fail.
   """
   tickers = list(
       set(settings.PRIMARY_TICKERS + [settings.VOLATILITY_TICKER])
   )
   data = {}
 
+  # Attempt 1: Fast Batch Download
   try:
-    # Single batch call for speed and anti-throttling
     df_batch = yf.download(
         tickers=tickers, period="1y", group_by="ticker", progress=False
     )
-
-    if df_batch.empty:
-      st.error("Market data fetch returned an empty dataset.")
-      return data
-
     for t in tickers:
       try:
         df_t = None
-
-        # Check MultiIndex structure
         if isinstance(df_batch.columns, pd.MultiIndex):
-          # Pattern 1: Ticker on Level 0 -> df_batch['QQQ']
           if t in df_batch.columns.levels[0]:
             df_t = df_batch[t].copy()
-          # Pattern 2: Ticker on Level 1 -> df_batch.xs('QQQ', level=1, axis=1)
           elif t in df_batch.columns.levels[1]:
             df_t = df_batch.xs(t, level=1, axis=1).copy()
-          # Pattern 3: Tuples in column names directly
-          else:
-            matching_cols = [
-                col for col in df_batch.columns if t in col or col[0] == t
-            ]
-            if matching_cols:
-              df_t = df_batch[matching_cols].copy()
-              df_t.columns = [
-                  c[1] if isinstance(c, tuple) else c for c in df_t.columns
-              ]
-
-        # Flat DataFrame fallback
         elif not isinstance(df_batch.columns, pd.MultiIndex):
           df_t = df_batch.copy()
 
-        # Clean and validate DataFrame
         if df_t is not None and not df_t.empty:
           df_t = df_t.dropna(how="all")
-          # Drop level names if present
-          if isinstance(df_t.columns, pd.MultiIndex):
-            df_t.columns = df_t.columns.get_level_values(-1)
-
-          if len(df_t) >= 50:
+          if len(df_t) >= 30:
             data[t] = df_t
+      except Exception:
+        pass
+  except Exception:
+    pass
 
-      except Exception as inner_e:
-        st.warning(f"Error parsing ticker {t}: {inner_e}")
-        continue
+  # Attempt 2: Individual Direct Fetch for Missing Tickers
+  for t in tickers:
+    if t not in data or data[t].empty:
+      df_single = fetch_ticker_data(t)
+      if not df_single.empty:
+        data[t] = df_single
 
-  except Exception as e:
-    st.error(f"Error fetching batched market data: {e}")
+  # Attempt 3: Restore from Session Memory if Network Failed completely
+  for t in tickers:
+    if (t not in data or data[t].empty) and t in st.session_state[
+        "cached_market_data"
+    ]:
+      data[t] = st.session_state["cached_market_data"][t]
+
+  # Save successful downloads to session state
+  for k, v in data.items():
+    if not v.empty:
+      st.session_state["cached_market_data"][k] = v
 
   return data
 
 
 market_data = load_market_data()
 
+# Check for missing primary tickers
+missing_tickers = [
+    t for t in settings.PRIMARY_TICKERS if t not in market_data
+]
+
 st.title("🛡️ Moderate / Conservative Market Trend Dashboard")
-st.caption(
-    f"Primary Benchmarks: **SPY, DIA, QQQ** | Last Updated:"
-    f" {NOW.strftime('%Y-%m-%d %H:%M:%S %Z')}"
-)
+
+header_col1, header_col2 = st.columns([3, 1])
+with header_col1:
+  st.caption(
+      f"Primary Benchmarks: **SPY, DIA, QQQ** | Last Updated:"
+      f" {NOW.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+  )
+with header_col2:
+  if missing_tickers:
+    if st.button("🔄 Retry Data Fetch", use_container_width=True):
+      st.cache_data.clear()
+      st.rerun()
 
 # -----------------------------------------------------------------------------
-# 1. Executive Summary & Quick Reference Guides
+# 1. Executive Summary & Pricing Section
 # -----------------------------------------------------------------------------
 st.subheader("1. Broad Market Guidance & Pricing")
 
@@ -108,7 +130,7 @@ cols = st.columns(len(settings.PRIMARY_TICKERS))
 
 for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
   with cols[idx]:
-    if ticker in market_data:
+    if ticker in market_data and not market_data[ticker].empty:
       df = market_data[ticker]
       metrics = evaluate_trend_and_action(df)
 
@@ -203,8 +225,15 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
               " Consolidation"
           )
         st.caption(f"**Low:** ${low_52:,.2f} | **High:** ${high_52:,.2f}")
+
     else:
-      st.error(f"Unable to load data for {ticker}")
+      # Graceful fallback card when data fails to populate entirely
+      with st.container(border=True):
+        st.warning(f"⚠️ **{ticker} Data Temporarily Offline**")
+        st.caption(
+            "Yahoo Finance connection timed out for this ticker. Other"
+            " benchmarks remain active."
+        )
 
 # -----------------------------------------------------------------------------
 # Quick Reference Guides: Left-Margin Selector & Full-Width Right Display
@@ -270,15 +299,15 @@ with guide_right_col:
             """)
 
 # -----------------------------------------------------------------------------
-# 2. Economic & Macro Risk Cards
+# 2. Economic & Macro Regime Cards (8 Cards across 4 Columns)
 # -----------------------------------------------------------------------------
 st.divider()
 st.subheader("2. Economic & Macro Regime Cards")
 macro_list = get_macro_risk_indicators()
-m_cols = st.columns(3)
+m_cols = st.columns(4)
 
 for idx, item in enumerate(macro_list):
-  with m_cols[idx % 3]:
+  with m_cols[idx % 4]:
     with st.container(border=True):
       st.markdown(f"**{item['title']}**")
       if item["color"] == "green":
