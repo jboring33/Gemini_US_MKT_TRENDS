@@ -25,34 +25,56 @@ NOW = datetime.now(TIMEZONE)
 
 @st.cache_data(ttl=settings.CACHE_TTL)
 def load_market_data():
+  """Downloads all primary market tickers in a single batched request
+
+  to prevent individual request timeouts, with resilient multi-index parsing.
+  """
   tickers = list(
       set(settings.PRIMARY_TICKERS + [settings.VOLATILITY_TICKER])
   )
   data = {}
+
   try:
+    # Single batch call prevents per-ticker timeouts
     df_batch = yf.download(
-        tickers, period="1y", group_by="ticker", progress=False
+        tickers=tickers, period="1y", group_by="ticker", progress=False
     )
+
+    if df_batch.empty:
+      st.error("Market data fetch returned an empty dataset.")
+      return data
+
     for t in tickers:
       try:
+        df_t = None
+        # Case 1: Multi-level columns grouped by ticker (Standard yfinance batch output)
         if (
             isinstance(df_batch.columns, pd.MultiIndex)
             and t in df_batch.columns.levels[0]
         ):
-          df_t = df_batch[t].copy().dropna(how="all")
+          df_t = df_batch[t].copy()
+        # Case 2: Multi-level columns grouped by attribute ('Close', 'SPY')
+        elif (
+            isinstance(df_batch.columns, pd.MultiIndex)
+            and t in df_batch.columns.levels[1]
+        ):
+          df_t = df_batch.xs(t, axis=1, level=1).copy()
+        # Case 3: Flat DataFrame (single ticker fallback)
         elif not isinstance(df_batch.columns, pd.MultiIndex):
-          df_t = df_batch.copy().dropna(how="all")
-        else:
-          df_t = None
+          df_t = df_batch.copy()
 
-        if df_t is not None and not df_t.empty and len(df_t) >= 100:
-          if isinstance(df_t.columns, pd.MultiIndex):
-            df_t.columns = df_t.columns.get_level_values(0)
-          data[t] = df_t
-      except Exception:
+        if df_t is not None:
+          df_t = df_t.dropna(how="all")
+          if len(df_t) >= 50:
+            data[t] = df_t
+
+      except Exception as inner_e:
+        st.warning(f"Error parsing ticker {t}: {inner_e}")
         continue
+
   except Exception as e:
-    st.error(f"Error fetching market data: {e}")
+    st.error(f"Error fetching batched market data: {e}")
+
   return data
 
 
@@ -105,9 +127,7 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
       else:
         st.error(f"**{metrics['action']}**")
 
-      # -----------------------------------------------------------------------
-      # Color-Coded Factors (Big Picture, Volume, Speed, Direction)
-      # -----------------------------------------------------------------------
+      # Color-Coded Factors
       if metrics.get("above_200", False):
         b1 = "🟢 **Big Picture Trend:** Bullish (Above long-term 200 SMA)"
       else:
@@ -153,7 +173,7 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
 
       st.markdown(f"{b1}\n\n{b2}\n\n{b3}\n\n{b4}")
 
-      # Dedicated 52-Week Position Card Restored inside Section 1
+      # Dedicated 52-Week Position Card
       with st.container(border=True):
         if range_pct >= 85:
           st.markdown(
@@ -173,51 +193,68 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
     else:
       st.error(f"Unable to load data for {ticker}")
 
-# Static Reference Guides
-ref_col1, ref_col2, ref_col3, ref_col4 = st.columns(4)
+# -----------------------------------------------------------------------------
+# Quick Reference Guides: Left-Margin Selector & Full-Width Right Display
+# -----------------------------------------------------------------------------
+st.write("")
+guide_left_col, guide_right_col = st.columns([1, 3])
 
-with ref_col1:
-  with st.expander("📖 Action Matrix Reference", expanded=False):
-    st.markdown("""
-        | Dashboard Signal | Lump-Sum | Routine DCA |
-        | :--- | :--- | :--- |
-        | **`ACCUMULATE`** | 🟢 **Buy Dips** | 🟢 **Green Light** |
-        | **`HOLD`** | 🟡 **Wait** | 🟢 **Green Light** |
-        | **`PAUSE BUYS`** | 🔴 **Stop** | 🟡 **Pause / Cash** |
-        | **`TRIM / DEFENSIVE`** | 🔴 **Stop** | 🔴 **Pause** |
-        """)
+with guide_left_col:
+  selected_guide = st.radio(
+      "📖 Quick Reference Guides",
+      options=[
+          "Action Matrix Reference",
+          "Relative Volume (RVOL) Guide",
+          "RSI & MACD Momentum Guide",
+          "Decision Matrix & Weights",
+      ],
+      index=0,
+  )
 
-with ref_col2:
-  with st.expander("📊 Relative Volume (RVOL) Guide", expanded=False):
-    st.markdown("""
-        | RVOL Level | Institutional Meaning | Action |
-        | :--- | :--- | :--- |
-        | **$\ge$ 1.25x** | 🏦 **Institutional Surge** | Confirms breakouts/dips. |
-        | **0.85x – 1.24x** | ⚖️ **Normal Volume** | Standard trend movement. |
-        | **$<$ 0.85x** | ⚠️ **Retail Churn** | Weak fuel; prone to reversals. |
-        """)
+with guide_right_col:
+  with st.container(border=True):
+    if selected_guide == "Action Matrix Reference":
+      st.markdown("### 📖 Action Matrix Reference")
+      st.markdown("""
+            | Dashboard Signal | Lump-Sum Capital | Routine DCA Capital | Strategy Execution |
+            | :--- | :--- | :--- | :--- |
+            | **`ACCUMULATE`** | 🟢 **Buy Dips** | 🟢 **Green Light** | Full conviction allocation on market pullbacks. |
+            | **`HOLD`** | 🟡 **Wait** | 🟢 **Green Light** | Continue systematic DCA; pause large lump-sum entries. |
+            | **`PAUSE BUYS`** | 🔴 **Stop** | 🟡 **Pause / Cash** | Hold cash allocations; trend below major 200 SMA threshold. |
+            | **`TRIM / DEFENSIVE`** | 🔴 **Stop** | 🔴 **Pause** | Focus on capital preservation; reduce exposure. |
+            """)
 
-with ref_col3:
-  with st.expander("📈 RSI & MACD Momentum Guide", expanded=False):
-    st.markdown("""
-        | Indicator | Reading / Signal | Tactical Meaning |
-        | :--- | :--- | :--- |
-        | **RSI (14)** | **$\ge$ 70** | **Overbought:** Pause new lump-sum buys. |
-        | **RSI (14)** | **$\le$ 30** | **Oversold:** Potential deep value entry. |
-        | **MACD** | **Line $>$ Signal** | **Bullish Momentum:** Upward momentum intact. |
-        | **MACD** | **Bull Crossover** | **Buy Signal:** Line crosses above signal line. |
-        """)
+    elif selected_guide == "Relative Volume (RVOL) Guide":
+      st.markdown("### 📊 Relative Volume (RVOL) Guide")
+      st.markdown("""
+            | RVOL Threshold | Institutional Meaning | Market Impact & Action |
+            | :--- | :--- | :--- |
+            | **$\ge$ 1.25x** | 🏦 **Institutional Heavy Volume** | Confirms true trend breakouts or major dip accumulation. |
+            | **0.85x – 1.24x** | ⚖️ **Normal Trading Volume** | Expected baseline market participation and orderly trend flow. |
+            | **$<$ 0.85x** | ⚠️ **Retail Churn / Low Volume** | Weak institutional support; signals fragile moves prone to reversals. |
+            """)
 
-with ref_col4:
-  with st.expander("⚙️ Decision Matrix & Weights", expanded=False):
-    st.markdown("""
-        | Factor / Signal | Weight / Hierarchy | Condition Rules |
-        | :--- | :--- | :--- |
-        | **200-Day SMA** | **Primary (50%)** | Price $>$ 200 SMA required for Bullish status. |
-        | **MACD Line** | **Secondary (25%)** | Line $>$ Signal = Upward direction. |
-        | **RSI (14)** | **Secondary (15%)** | Overbought ($\ge 70$), Oversold ($\le 30$). |
-        | **RVOL (20d)** | **Filter (10%)** | $\ge 1.25x$ confirms high institutional fuel. |
-        """)
+    elif selected_guide == "RSI & MACD Momentum Guide":
+      st.markdown("### 📈 RSI & MACD Momentum Guide")
+      st.markdown("""
+            | Indicator | Signal / Level | Interpretation & Tactical Meaning |
+            | :--- | :--- | :--- |
+            | **RSI (14)** | **$\ge$ 70** | **Overbought:** Extended movement; pause new lump-sum entries. |
+            | **RSI (14)** | **$\le$ 30** | **Oversold:** Value compression zone; monitor for deep dip buying. |
+            | **MACD** | **Line $>$ Signal** | **Bullish Momentum:** Upward momentum intact across short/mid timeframe. |
+            | **MACD** | **Line $<$ Signal** | **Bearish Momentum:** Momentum slowing down; caution warranted. |
+            """)
+
+    elif selected_guide == "Decision Matrix & Weights":
+      st.markdown("### ⚙️ Decision Matrix & Factor Weights")
+      st.markdown("""
+            | Factor / Metric | Decision Weight | Condition Rules |
+            | :--- | :--- | :--- |
+            | **200-Day SMA** | **Primary Baseline (50%)** | Price $>$ 200 SMA required for Bullish status. Hard gate for `ACCUMULATE`. |
+            | **MACD Indicator** | **Directional Vector (25%)** | MACD Line $>$ Signal Line required for active upward momentum. |
+            | **RSI (14-Day)** | **Speed & Energy (15%)** | Filters out overbought conditions ($\ge 70$) to prevent buying peaks. |
+            | **RVOL (20-Day)** | **Institutional Fuel (10%)** | Volume multiplier verifying high-conviction institutional backing ($\ge 1.25x$). |
+            """)
 
 # -----------------------------------------------------------------------------
 # 2. Economic & Macro Risk Cards
