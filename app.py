@@ -27,7 +27,7 @@ NOW = datetime.now(TIMEZONE)
 def load_market_data():
   """Downloads all primary market tickers in a single batched request
 
-  to prevent individual request timeouts, with resilient multi-index parsing.
+  with exhaustive multi-index parsing to prevent single-ticker dropouts.
   """
   tickers = list(
       set(settings.PRIMARY_TICKERS + [settings.VOLATILITY_TICKER])
@@ -35,7 +35,7 @@ def load_market_data():
   data = {}
 
   try:
-    # Single batch call prevents per-ticker timeouts
+    # Single batch call for speed and anti-throttling
     df_batch = yf.download(
         tickers=tickers, period="1y", group_by="ticker", progress=False
     )
@@ -47,24 +47,37 @@ def load_market_data():
     for t in tickers:
       try:
         df_t = None
-        # Case 1: Multi-level columns grouped by ticker (Standard yfinance batch output)
-        if (
-            isinstance(df_batch.columns, pd.MultiIndex)
-            and t in df_batch.columns.levels[0]
-        ):
-          df_t = df_batch[t].copy()
-        # Case 2: Multi-level columns grouped by attribute ('Close', 'SPY')
-        elif (
-            isinstance(df_batch.columns, pd.MultiIndex)
-            and t in df_batch.columns.levels[1]
-        ):
-          df_t = df_batch.xs(t, axis=1, level=1).copy()
-        # Case 3: Flat DataFrame (single ticker fallback)
+
+        # Check MultiIndex structure
+        if isinstance(df_batch.columns, pd.MultiIndex):
+          # Pattern 1: Ticker on Level 0 -> df_batch['QQQ']
+          if t in df_batch.columns.levels[0]:
+            df_t = df_batch[t].copy()
+          # Pattern 2: Ticker on Level 1 -> df_batch.xs('QQQ', level=1, axis=1)
+          elif t in df_batch.columns.levels[1]:
+            df_t = df_batch.xs(t, level=1, axis=1).copy()
+          # Pattern 3: Tuples in column names directly
+          else:
+            matching_cols = [
+                col for col in df_batch.columns if t in col or col[0] == t
+            ]
+            if matching_cols:
+              df_t = df_batch[matching_cols].copy()
+              df_t.columns = [
+                  c[1] if isinstance(c, tuple) else c for c in df_t.columns
+              ]
+
+        # Flat DataFrame fallback
         elif not isinstance(df_batch.columns, pd.MultiIndex):
           df_t = df_batch.copy()
 
-        if df_t is not None:
+        # Clean and validate DataFrame
+        if df_t is not None and not df_t.empty:
           df_t = df_t.dropna(how="all")
+          # Drop level names if present
+          if isinstance(df_t.columns, pd.MultiIndex):
+            df_t.columns = df_t.columns.get_level_values(-1)
+
           if len(df_t) >= 50:
             data[t] = df_t
 
