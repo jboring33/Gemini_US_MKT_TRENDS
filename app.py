@@ -206,25 +206,24 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
       else:
         b4 = "🔴 **Direction (MACD):** Bearish (Momentum slowing / downward)"
 
-      st.markdown(f"{b1}\n\n{b2}\n\n{b3}\n\n{b4}")
+      # Standardized 52-Week Position Factor Bullet
+      if range_pct >= 85:
+        b5 = (
+            f"🔴 **52-Wk Range Position ({range_pct:.0f}%):** Extended Near"
+            f" Highs (${low_52:,.2f} - ${high_52:,.2f})"
+        )
+      elif range_pct <= 20:
+        b5 = (
+            f"🟢 **52-Wk Range Position ({range_pct:.0f}%):** Value Zone Near"
+            f" Lows (${low_52:,.2f} - ${high_52:,.2f})"
+        )
+      else:
+        b5 = (
+            f"⚪ **52-Wk Range Position ({range_pct:.0f}%):** Mid-Range"
+            f" Consolidation (${low_52:,.2f} - ${high_52:,.2f})"
+        )
 
-      # Dedicated 52-Week Position Card
-      with st.container(border=True):
-        if range_pct >= 85:
-          st.markdown(
-              f"🔴 **52-Wk Position ({range_pct:.0f}%):** Extended Near Highs"
-              " (Pullback Risk)"
-          )
-        elif range_pct <= 20:
-          st.markdown(
-              f"🟢 **52-Wk Position ({range_pct:.0f}%):** Near Lows (Value Zone)"
-          )
-        else:
-          st.markdown(
-              f"⚪ **52-Wk Position ({range_pct:.0f}%):** Mid-Range"
-              " Consolidation"
-          )
-        st.caption(f"**Low:** ${low_52:,.2f} | **High:** ${high_52:,.2f}")
+      st.markdown(f"{b1}\n\n{b2}\n\n{b3}\n\n{b4}\n\n{b5}")
 
     else:
       # Graceful fallback card when data fails to populate entirely
