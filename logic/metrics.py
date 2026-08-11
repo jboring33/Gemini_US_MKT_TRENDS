@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
@@ -5,25 +6,64 @@ import plotly.graph_objects as go
 def create_interactive_chart(df, ticker):
   fig = go.Figure()
 
-  # Clean, reliable Hollow Candlestick styling
+  # Calculate Up/Down and Hollow/Solid logic
+  # Hollow = Close > Open (White interior with colored border)
+  # Solid = Close < Open (Filled color)
+  df_calc = df.copy()
+
+  # 1. High-Low Wicks
   fig.add_trace(
-      go.Candlestick(
-          x=df.index,
-          open=df["Open"],
-          high=df["High"],
-          low=df["Low"],
-          close=df["Close"],
-          name=f"{ticker} Price",
-          increasing=dict(
-              line=dict(color="#26a69a", width=1.5),
-              fillcolor="rgba(255,255,255,0)",  # Transparent fill for hollow green
-          ),
-          decreasing=dict(
-              line=dict(color="#ef5350", width=1.5),
-              fillcolor="#ef5350",  # Solid fill for down red
-          ),
+      go.Scatter(
+          x=np.repeat(df_calc.index, 3),
+          y=np.dstack(
+              (df_calc["Low"], df_calc["High"], np.full(len(df_calc), np.nan))
+          ).flatten(),
+          mode="lines",
+          line=dict(color="#26a69a", width=1),
+          showlegend=False,
+          hoverinfo="none",
       )
   )
+
+  # 2. Hollow Green Candles (Up days: Close >= Open)
+  up_mask = df_calc["Close"] >= df_calc["Open"]
+  df_up = df_calc[up_mask]
+
+  if not df_up.empty:
+    fig.add_trace(
+        go.Bar(
+            x=df_up.index,
+            y=df_up["Close"] - df_up["Open"],
+            base=df_up["Open"],
+            marker=dict(
+                color="rgba(255, 255, 255, 1)",  # White inside (Hollow)
+                line=dict(
+                    color="#26a69a", width=1.5
+                ),  # Green outline stroke
+            ),
+            name="Bullish (Hollow Green)",
+            hoverinfo="x+y",
+        )
+    )
+
+  # 3. Solid Red Candles (Down days: Close < Open)
+  down_mask = df_calc["Close"] < df_calc["Open"]
+  df_down = df_calc[down_mask]
+
+  if not df_down.empty:
+    fig.add_trace(
+        go.Bar(
+            x=df_down.index,
+            y=df_down["Open"] - df_down["Close"],
+            base=df_down["Close"],
+            marker=dict(
+                color="#ef5350",  # Solid Red fill
+                line=dict(color="#ef5350", width=1),
+            ),
+            name="Bearish (Solid Red)",
+            hoverinfo="x+y",
+        )
+    )
 
   # Moving Averages
   if "SMA_20" in df.columns:
@@ -57,12 +97,13 @@ def create_interactive_chart(df, ticker):
   fig.update_layout(
       title=f"{ticker} Technical Chart",
       yaxis_title="Price ($)",
-      xaxis_rangeslider_visible=False,
       template="plotly_white",
       height=550,
       margin=dict(l=20, r=20, t=40, b=20),
       dragmode="zoom",
       hovermode="x unified",
+      barmode="overlay",
+      showlegend=True,
   )
 
   fig.update_xaxes(fixedrange=False)
@@ -72,18 +113,14 @@ def create_interactive_chart(df, ticker):
 
 
 def evaluate_trend_and_action(df):
-  """Evaluates market data and returns dictionary of metrics & signals."""
-  # Ensure clean numeric columns
   for col in ["Open", "High", "Low", "Close", "Volume"]:
     if col in df.columns:
       df[col] = pd.to_numeric(df[col], errors="coerce")
 
-  # Calculate moving averages
   df["SMA_20"] = df["Close"].rolling(20).mean()
   df["SMA_50"] = df["Close"].rolling(50).mean()
   df["SMA_200"] = df["Close"].rolling(200).mean()
 
-  # Calculate RSI (14)
   delta = df["Close"].diff()
   gain = (delta.where(delta > 0, 0)).rolling(14).mean()
   loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
@@ -91,7 +128,6 @@ def evaluate_trend_and_action(df):
   rsi = 100 - (100 / (1 + rs))
   df["RSI"] = rsi
 
-  # Calculate MACD
   ema12 = df["Close"].ewm(span=12, adjust=False).mean()
   ema26 = df["Close"].ewm(span=26, adjust=False).mean()
   macd = ema12 - ema26
@@ -99,7 +135,6 @@ def evaluate_trend_and_action(df):
   df["MACD"] = macd
   df["MACD_Signal"] = signal
 
-  # Calculate RVOL (20-day baseline)
   vol_20_sma = df["Volume"].rolling(20).mean()
   rvol = (
       df["Volume"].iloc[-1] / vol_20_sma.iloc[-1]
@@ -119,7 +154,6 @@ def evaluate_trend_and_action(df):
   )
   macd_bullish = float(df["MACD"].iloc[-1]) > float(df["MACD_Signal"].iloc[-1])
 
-  # Crossover Detections
   cross_20_50 = None
   cross_50_200 = None
   if (
@@ -140,11 +174,10 @@ def evaluate_trend_and_action(df):
     cross_50_200 = "🚀 Golden Cross (50/200)"
   elif (
       df["SMA_50"].iloc[-2] > df["SMA_200"].iloc[-2]
-      and df["SMA_50"].iloc[-1] <= df["SMA_200"].iloc[-1]
+      and df["SMA_50"].iloc[-1] <= df["SMA_50"].iloc[-1]
   ):
     cross_50_200 = "💀 Death Cross (50/200)"
 
-  # Recommendation Matrix
   if above_200 and rsi_val_check(curr_rsi) != "overbought" and macd_bullish:
     action = "ACCUMULATE"
     badge = "success"
