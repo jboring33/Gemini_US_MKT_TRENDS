@@ -11,10 +11,7 @@ import yfinance as yf
 
 import config.settings as settings
 from logic.macro_data import get_macro_risk_indicators
-from logic.metrics import (
-    create_interactive_chart,
-    evaluate_trend_and_action,
-)
+from logic.metrics import evaluate_trend_and_action
 
 st.set_page_config(
     page_title="US Market Trends & Risk Dashboard",
@@ -84,6 +81,14 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
       change = metrics["curr_price"] - prev_price
       pct_change = (change / prev_price) * 100
 
+      low_52 = float(df["Low"].min())
+      high_52 = float(df["High"].max())
+      range_pct = (
+          ((metrics["curr_price"] - low_52) / (high_52 - low_52)) * 100
+          if high_52 > low_52
+          else 0
+      )
+
       st.metric(
           label=ticker,
           value=f"${metrics['curr_price']:,.2f}",
@@ -101,7 +106,7 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
         st.error(f"**{metrics['action']}**")
 
       # -----------------------------------------------------------------------
-      # Color-Coded Factors (Strictly 4 Core Factors Here)
+      # Color-Coded Factors (Big Picture, Volume, Speed, Direction)
       # -----------------------------------------------------------------------
       if metrics.get("above_200", False):
         b1 = "🟢 **Big Picture Trend:** Bullish (Above long-term 200 SMA)"
@@ -146,13 +151,25 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
       else:
         b4 = "🔴 **Direction (MACD):** Bearish (Momentum slowing / downward)"
 
-      # Render ONLY the 4 main factors
       st.markdown(f"{b1}\n\n{b2}\n\n{b3}\n\n{b4}")
 
-      if metrics["cross_20_50"]:
-        st.info(metrics["cross_20_50"])
-      if metrics["cross_50_200"]:
-        st.warning(metrics["cross_50_200"])
+      # Dedicated 52-Week Position Card Restored inside Section 1
+      with st.container(border=True):
+        if range_pct >= 85:
+          st.markdown(
+              f"🔴 **52-Wk Position ({range_pct:.0f}%):** Extended Near Highs"
+              " (Pullback Risk)"
+          )
+        elif range_pct <= 20:
+          st.markdown(
+              f"🟢 **52-Wk Position ({range_pct:.0f}%):** Near Lows (Value Zone)"
+          )
+        else:
+          st.markdown(
+              f"⚪ **52-Wk Position ({range_pct:.0f}%):** Mid-Range"
+              " Consolidation"
+          )
+        st.caption(f"**Low:** ${low_52:,.2f} | **High:** ${high_52:,.2f}")
     else:
       st.error(f"Unable to load data for {ticker}")
 
@@ -192,82 +209,21 @@ with ref_col3:
         """)
 
 with ref_col4:
-  with st.expander("🕯️ Candlestick Guide", expanded=False):
+  with st.expander("⚙️ Decision Matrix & Weights", expanded=False):
     st.markdown("""
-        | Candle Style | Intraday Movement | Price vs. Yesterday |
+        | Factor / Signal | Weight / Hierarchy | Condition Rules |
         | :--- | :--- | :--- |
-        | `[ Outline Green ]` | **Bullish** (Close $>$ Open) | **Higher** than prev close |
-        | `[ Solid Red ]` | **Bearish** (Close $<$ Open) | **Lower** than prev close |
-        | `[ Solid Green ]` | **Bearish** (Close $<$ Open) | **Higher** than prev close |
-        | `[ Outline Red ]` | **Bullish** (Close $>$ Open) | **Lower** than prev close |
+        | **200-Day SMA** | **Primary (50%)** | Price $>$ 200 SMA required for Bullish status. |
+        | **MACD Line** | **Secondary (25%)** | Line $>$ Signal = Upward direction. |
+        | **RSI (14)** | **Secondary (15%)** | Overbought ($\ge 70$), Oversold ($\le 30$). |
+        | **RVOL (20d)** | **Filter (10%)** | $\ge 1.25x$ confirms high institutional fuel. |
         """)
 
 # -----------------------------------------------------------------------------
-# 2. Interactive Technical Charts
+# 2. Economic & Macro Risk Cards
 # -----------------------------------------------------------------------------
 st.divider()
-st.subheader("2. Price Action & Volume Technical Charts")
-
-chart_tab1, chart_tab2, chart_tab3 = st.tabs(
-    ["SPY Chart", "DIA Chart", "QQQ Chart"]
-)
-tab_map = {"SPY": chart_tab1, "DIA": chart_tab2, "QQQ": chart_tab3}
-
-for ticker, tab in tab_map.items():
-  with tab:
-    if ticker in market_data:
-      df = market_data[ticker]
-      fig = create_interactive_chart(df, ticker)
-      st.plotly_chart(
-          fig,
-          use_container_width=True,
-          config={
-              "scrollZoom": True,
-              "displayModeBar": True,
-              "displaylogo": False,
-          },
-      )
-
-      # -----------------------------------------------------------------------
-      # Dedicated 52-Week Position Card Moved HERE (Below Chart)
-      # -----------------------------------------------------------------------
-      curr_p = float(df["Close"].iloc[-1])
-      low_52 = float(df["Low"].min())
-      high_52 = float(df["High"].max())
-      range_pct = (
-          ((curr_p - low_52) / (high_52 - low_52)) * 100
-          if high_52 > low_52
-          else 0
-      )
-
-      with st.container(border=True):
-        st.markdown(f"### 📍 {ticker} 52-Week Position")
-        if range_pct >= 85:
-          st.markdown(
-              f"🔴 **52-Wk Range ({range_pct:.0f}%):** Near Highs (Pullback"
-              " Risk)"
-          )
-        elif range_pct <= 20:
-          st.markdown(
-              f"🟢 **52-Wk Range ({range_pct:.0f}%):** Near Lows (Value Zone)"
-          )
-        else:
-          st.markdown(
-              f"⚪ **52-Wk Range ({range_pct:.0f}%):** Mid-Range"
-              " Consolidation"
-          )
-        st.caption(
-            f"**52-Wk Low:** ${low_52:,.2f} | **Current:** ${curr_p:,.2f} |"
-            f" **52-Wk High:** ${high_52:,.2f}"
-        )
-    else:
-      st.warning(f"No chart data available for {ticker}")
-
-# -----------------------------------------------------------------------------
-# 3. Economic & Macro Risk Cards
-# -----------------------------------------------------------------------------
-st.divider()
-st.subheader("3. Economic & Macro Regime Cards")
+st.subheader("2. Economic & Macro Regime Cards")
 macro_list = get_macro_risk_indicators()
 m_cols = st.columns(3)
 
