@@ -1,7 +1,5 @@
 def get_macro_risk_indicators() -> list:
   """Returns macro, fundamental valuation, and economic regime indicators
-
-  for Section 4 of the Streamlit dashboard.
   """
   return [
       {
@@ -68,6 +66,41 @@ def get_macro_risk_indicators() -> list:
               "A stable US Dollar index (DXY) and moderate energy/commodity"
               " prices reduce input-cost pressures for S&P 500 and Dow Jones"
               " industrial components."
+          ),
+      },
+  ]
+
+def get_macro_risk_indicators():
+  return [
+      {
+          "title": "Corporate Earnings Growth & Guidance",
+          "status": "Positive / Expansionary",
+          "color": "green",
+          "detail": (
+              "S&P 500 (SPY) and Nasdaq (QQQ) aggregate EPS growth remains"
+              " solid with stable forward guidance. Corporate margins across"
+              " major index holdings continue to support elevated market"
+              " valuations."
+          ),
+      },
+      {
+          "title": "Federal Reserve Rate Trajectory",
+          "status": "Neutral / Data Dependent",
+          "color": "yellow",
+          "detail": (
+              "The Fed is balancing inflation control with economic growth."
+              " Rate policy remains restricted, but easing expectations"
+              " provide liquidity support for broad equities."
+          ),
+      },
+      {
+          "title": "Inflation & Consumer Health (CPI / PCE)",
+          "status": "Moderating Trend",
+          "color": "green",
+          "detail": (
+              "Headline and core inflation measures show gradual cooling towards"
+              " target levels, easing margin pressure on Dow (DIA) industrial"
+              " and consumer components."
           ),
       },
   ]
