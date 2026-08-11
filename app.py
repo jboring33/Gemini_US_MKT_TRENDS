@@ -33,14 +33,11 @@ def load_market_data():
   )
   data = {}
   try:
-    # Fetch all tickers in a single batch request
     df_batch = yf.download(
         tickers, period="1y", group_by="ticker", progress=False
     )
-
     for t in tickers:
       try:
-        # Robust ticker extraction for multi-index vs single-index DataFrames
         if (
             isinstance(df_batch.columns, pd.MultiIndex)
             and t in df_batch.columns.levels[0]
@@ -52,7 +49,6 @@ def load_market_data():
           df_t = None
 
         if df_t is not None and not df_t.empty and len(df_t) >= 100:
-          # Flatten multi-index columns if present
           if isinstance(df_t.columns, pd.MultiIndex):
             df_t.columns = df_t.columns.get_level_values(0)
           data[t] = df_t
@@ -88,14 +84,6 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
       change = metrics["curr_price"] - prev_price
       pct_change = (change / prev_price) * 100
 
-      low_52 = float(df["Low"].min())
-      high_52 = float(df["High"].max())
-      range_pct = (
-          ((metrics["curr_price"] - low_52) / (high_52 - low_52)) * 100
-          if high_52 > low_52
-          else 0
-      )
-
       st.metric(
           label=ticker,
           value=f"${metrics['curr_price']:,.2f}",
@@ -115,13 +103,11 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
       # -----------------------------------------------------------------------
       # Color-Coded Factors (Strictly 4 Core Factors Here)
       # -----------------------------------------------------------------------
-      # 1. Big Picture Trend
       if metrics.get("above_200", False):
         b1 = "🟢 **Big Picture Trend:** Bullish (Above long-term 200 SMA)"
       else:
         b1 = "🔴 **Big Picture Trend:** Bearish (Below long-term 200 SMA)"
 
-      # 2. Volume Fuel (RVOL)
       rvol_val = metrics.get("rvol", 1.0)
       if rvol_val >= 1.25:
         b2 = (
@@ -136,7 +122,6 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
             " Churn"
         )
 
-      # 3. Speed & Energy (RSI)
       rsi_val = metrics.get("rsi", 50)
       if rsi_val >= 70:
         b3 = (
@@ -156,32 +141,13 @@ for idx, ticker in enumerate(settings.PRIMARY_TICKERS):
       else:
         b3 = f"🟡 **Speed & Energy (RSI {rsi_val}):** Neutral to Weak Momentum"
 
-      # 4. Direction (MACD)
       if metrics.get("macd_bullish", False):
         b4 = "🟢 **Direction (MACD):** Bullish (Momentum moving upward)"
       else:
         b4 = "🔴 **Direction (MACD):** Bearish (Momentum slowing / downward)"
 
-      # Render ONLY the 4 main factors (no 52-week here)
+      # Render ONLY the 4 main factors
       st.markdown(f"{b1}\n\n{b2}\n\n{b3}\n\n{b4}")
-
-      # Dedicated Card Block for 52-Week Position
-      with st.container(border=True):
-        if range_pct >= 85:
-          st.markdown(
-              f"🔴 **52-Wk Position ({range_pct:.0f}%):** Extended Near Highs"
-              " (Pullback Risk)"
-          )
-        elif range_pct <= 20:
-          st.markdown(
-              f"🟢 **52-Wk Position ({range_pct:.0f}%):** Near Lows (Value Zone)"
-          )
-        else:
-          st.markdown(
-              f"⚪ **52-Wk Position ({range_pct:.0f}%):** Mid-Range"
-              " Consolidation"
-          )
-        st.caption(f"**Low:** ${low_52:,.2f} | **High:** ${high_52:,.2f}")
 
       if metrics["cross_20_50"]:
         st.info(metrics["cross_20_50"])
@@ -230,10 +196,10 @@ with ref_col4:
     st.markdown("""
         | Candle Style | Intraday Movement | Price vs. Yesterday |
         | :--- | :--- | :--- |
-        | 🟩 **Hollow Green** | **Bullish** (Close $>$ Open) | **Higher** than prev close |
-        | 🔴 **Solid Red** | **Bearish** (Close $<$ Open) | **Lower** than prev close |
-        | 🟩 **Solid Green** | **Bearish** (Close $<$ Open) | **Higher** than prev close |
-        | 🔴 **Hollow Red** | **Bullish** (Close $>$ Open) | **Lower** than prev close |
+        | `[ Outline Green ]` | **Bullish** (Close $>$ Open) | **Higher** than prev close |
+        | `[ Solid Red ]` | **Bearish** (Close $<$ Open) | **Lower** than prev close |
+        | `[ Solid Green ]` | **Bearish** (Close $<$ Open) | **Higher** than prev close |
+        | `[ Outline Red ]` | **Bullish** (Close $>$ Open) | **Lower** than prev close |
         """)
 
 # -----------------------------------------------------------------------------
@@ -250,7 +216,8 @@ tab_map = {"SPY": chart_tab1, "DIA": chart_tab2, "QQQ": chart_tab3}
 for ticker, tab in tab_map.items():
   with tab:
     if ticker in market_data:
-      fig = create_interactive_chart(market_data[ticker], ticker)
+      df = market_data[ticker]
+      fig = create_interactive_chart(df, ticker)
       st.plotly_chart(
           fig,
           use_container_width=True,
@@ -260,6 +227,39 @@ for ticker, tab in tab_map.items():
               "displaylogo": False,
           },
       )
+
+      # -----------------------------------------------------------------------
+      # Dedicated 52-Week Position Card Moved HERE (Below Chart)
+      # -----------------------------------------------------------------------
+      curr_p = float(df["Close"].iloc[-1])
+      low_52 = float(df["Low"].min())
+      high_52 = float(df["High"].max())
+      range_pct = (
+          ((curr_p - low_52) / (high_52 - low_52)) * 100
+          if high_52 > low_52
+          else 0
+      )
+
+      with st.container(border=True):
+        st.markdown(f"### 📍 {ticker} 52-Week Position")
+        if range_pct >= 85:
+          st.markdown(
+              f"🔴 **52-Wk Range ({range_pct:.0f}%):** Near Highs (Pullback"
+              " Risk)"
+          )
+        elif range_pct <= 20:
+          st.markdown(
+              f"🟢 **52-Wk Range ({range_pct:.0f}%):** Near Lows (Value Zone)"
+          )
+        else:
+          st.markdown(
+              f"⚪ **52-Wk Range ({range_pct:.0f}%):** Mid-Range"
+              " Consolidation"
+          )
+        st.caption(
+            f"**52-Wk Low:** ${low_52:,.2f} | **Current:** ${curr_p:,.2f} |"
+            f" **52-Wk High:** ${high_52:,.2f}"
+        )
     else:
       st.warning(f"No chart data available for {ticker}")
 
